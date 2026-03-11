@@ -10,4 +10,6 @@ abstract: >-
 authors:
   - Jingxuan Men
   - Yun Hou
+links:
+  ITU: https://www.itu.int/pub/S-JNL-VOL3.ISSUE1-2022-A04
 ---

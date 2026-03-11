@@ -14,4 +14,6 @@ authors:
   - Peng Qian
   - Carl Udora
   - Mike Nilsson
+links:
+  IEEE Xplore: https://ieeexplore.ieee.org/document/10622850
 ---

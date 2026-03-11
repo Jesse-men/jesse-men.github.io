@@ -14,4 +14,6 @@ authors:
   - Mahdi Boloursaz Mashhadi
   - Yi Ma
   - Mike Nilsson
+links:
+  IEEE Xplore: https://ieeexplore.ieee.org/document/11152783
 ---

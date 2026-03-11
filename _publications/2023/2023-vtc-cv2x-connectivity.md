@@ -12,4 +12,6 @@ authors:
   - Yun Hou
   - Zhengguo Sheng
   - Tse-Tin Chan
+links:
+  IEEE Xplore: https://ieeexplore.ieee.org/document/10200772
 ---
