@@ -1,5 +1,5 @@
 ---
-title:          "Video TokenCom: Intent-Guided Adaptive Source-Channel Coding"
+title:          "Video TokenCom: Textual Intent-guided Multi-Rate Video Token Communications with UEP-based Adaptive Source–Channel Coding"
 date:           2026-03-02 12:00:00 +0800
 selected:       true
 first_author:   true
@@ -13,6 +13,7 @@ authors:
   - Ning Wang
   - Yi Ma
   - Mike Nilsson
+  - Rahim Tafazolli
 links:
   arXiv: https://arxiv.org/abs/2603.02470
 ---
