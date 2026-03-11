@@ -7,7 +7,7 @@ pages:
   url: /index_layout2
 - name: Publications
   url: /publications
-- name: 论文阅读
+- name: Reading
   url: /reading_papers.html
 # - name: Showcase
 #   url: /showcase

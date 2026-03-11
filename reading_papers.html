@@ -1,21 +1,21 @@
 ---
 layout: default
-title: 论文阅读记录
-navbar_title: 论文阅读
+title: Reading List
+navbar_title: Reading
 permalink: /reading_papers.html
 body_attr: ""
 ---
 
 <div class="row py-4">
   <div class="col-12">
-    <h1 class="mb-2">论文阅读记录</h1>
-    <p class="text-muted mb-4">记录在网页上看过的论文，并按关键词分类与筛选。</p>
+    <h1 class="mb-2">Reading List</h1>
+    <p class="text-muted mb-4">Track papers you've read on the web and filter by keywords.</p>
 
-    <!-- 关键词筛选 -->
+    <!-- Keyword filter -->
     <div class="mb-4">
-      <span class="mr-2 text-secondary">按关键词筛选：</span>
+      <span class="mr-2 text-secondary">Filter by keyword:</span>
       <div id="keyword-pills" class="d-inline-flex flex-wrap align-items-center">
-        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill mr-1 mb-1 keyword-filter active" data-keyword="">全部</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill mr-1 mb-1 keyword-filter active" data-keyword="">All</button>
         {% assign all_keywords = "" | split: "" %}
         {% for p in site.data.reading_papers.papers %}
           {% for kw in p.keywords %}
@@ -29,46 +29,46 @@ body_attr: ""
       </div>
     </div>
 
-    <!-- 快速添加 -->
+    <!-- Quick add -->
     <div class="mb-4">
       <button type="button" class="btn btn-outline-dark btn-sm" id="btn-toggle-add" data-toggle="collapse" data-target="#add-paper-form" aria-expanded="false">
-        <i class="fas fa-plus mr-1"></i> 添加论文
+        <i class="fas fa-plus mr-1"></i> Add paper
       </button>
-      <button type="button" class="btn btn-outline-secondary btn-sm ml-2" id="btn-export-yaml" title="将本地暂存的论文导出为 YAML，可粘贴到 _data/reading_papers.yml">
-        <i class="fas fa-download mr-1"></i> 导出 YAML
+      <button type="button" class="btn btn-outline-secondary btn-sm ml-2" id="btn-export-yaml" title="Export locally saved papers as YAML for _data/reading_papers.yml">
+        <i class="fas fa-download mr-1"></i> Export YAML
       </button>
     </div>
 
     <div class="collapse mb-4" id="add-paper-form">
       <div class="card rounded-xl shadow-sm">
         <div class="card-body">
-          <h6 class="card-title">快速添加（保存到本机，刷新后仍存在）</h6>
+          <h6 class="card-title">Quick add (saved in browser, persists after refresh)</h6>
           <form id="form-add-paper">
             <div class="form-row">
               <div class="form-group col-12">
-                <label for="input-title">标题</label>
-                <input type="text" class="form-control" id="input-title" placeholder="论文标题" required>
+                <label for="input-title">Title</label>
+                <input type="text" class="form-control" id="input-title" placeholder="Paper title" required>
               </div>
               <div class="form-group col-12">
-                <label for="input-url">链接</label>
+                <label for="input-url">URL</label>
                 <input type="url" class="form-control" id="input-url" placeholder="https://..." required>
               </div>
               <div class="form-group col-12">
-                <label for="input-keywords">关键词（逗号分隔）</label>
-                <input type="text" class="form-control" id="input-keywords" placeholder="例如：全息, 5G, 边缘计算">
+                <label for="input-keywords">Keywords (comma-separated)</label>
+                <input type="text" class="form-control" id="input-keywords" placeholder="e.g. holographic, 5G, edge computing">
               </div>
               <div class="form-group col-12">
-                <label for="input-notes">备注</label>
-                <input type="text" class="form-control" id="input-notes" placeholder="可选">
+                <label for="input-notes">Notes</label>
+                <input type="text" class="form-control" id="input-notes" placeholder="Optional">
               </div>
             </div>
-            <button type="submit" class="btn btn-primary">保存到本机</button>
+            <button type="submit" class="btn btn-primary">Save locally</button>
           </form>
         </div>
       </div>
     </div>
 
-    <!-- 论文列表：来自 _data/reading_papers.yml -->
+    <!-- Paper list from _data/reading_papers.yml -->
     <div class="my-0 p-0 bg-white shadow-sm rounded-xl" id="papers-from-data">
       {% assign papers = site.data.reading_papers.papers %}
       {% for p in papers %}
@@ -88,27 +88,27 @@ body_attr: ""
               {% endfor %}
             </div>
           </div>
-          <a href="{{ p.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary ml-2">打开</a>
+          <a href="{{ p.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary ml-2">Open</a>
         </div>
       </div>
       {% endfor %}
     </div>
 
-    <!-- 本机暂存论文列表（由 JS 渲染） -->
+    <!-- Locally saved papers (rendered by JS) -->
     <div class="my-0 p-0 bg-white shadow-sm rounded-xl mt-3" id="papers-from-storage" style="display: none;">
       <div class="border-bottom border-gray p-3 bg-light">
-        <strong>本机暂存</strong> <span class="small text-muted">（仅当前设备可见，可导出为 YAML 后合并到上方列表）</span>
+        <strong>Local storage</strong> <span class="small text-muted">(visible only on this device; export as YAML to merge into the list above)</span>
       </div>
       <div id="papers-from-storage-list"></div>
     </div>
 
     <div class="mt-4 small text-muted">
-      <p class="mb-0">使用说明：</p>
+      <p class="mb-0">How it works:</p>
       <ul class="mb-0 pl-3">
-        <li>上方列表来自 <code>_data/reading_papers.yml</code>，可在仓库中编辑该文件增删论文。</li>
-        <li>点击「添加论文」可把当前浏览的论文保存到本机（localStorage），刷新后仍保留。</li>
-        <li>点击「导出 YAML」可把本机暂存的论文生成 YAML，复制后粘贴到 <code>_data/reading_papers.yml</code> 的 <code>papers:</code> 下即可同步到站点。</li>
-        <li>在论文页面时，可将本页加入书签，需要时点击「添加论文」并粘贴链接即可快速记录。</li>
+        <li>The list above comes from <code>_data/reading_papers.yml</code>; edit that file in the repo to add or remove papers.</li>
+        <li>Use &quot;Add paper&quot; to save papers in your browser (localStorage); they persist after refresh.</li>
+        <li>Use &quot;Export YAML&quot; to copy locally saved papers as YAML, then paste under <code>papers:</code> in <code>_data/reading_papers.yml</code> to sync to the site.</li>
+        <li>Bookmark this page and paste the paper URL into the add form for quick recording.</li>
       </ul>
     </div>
   </div>

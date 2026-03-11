@@ -1,5 +1,5 @@
 /**
- * 论文阅读记录页：关键词筛选、本机添加、导出 YAML
+ * Reading list page: keyword filter, local add, export YAML
  */
 (function () {
   var STORAGE_KEY = 'reading_papers_local';
@@ -49,8 +49,8 @@
         '<div class="keyword-tags">' + keywords + '</div>' +
         '</div>' +
         '<div>' +
-        '<a href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary ml-2">打开</a> ' +
-        '<button type="button" class="btn btn-sm btn-outline-danger ml-1 btn-remove-local" data-index="' + i + '">删除</button>' +
+        '<a href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary ml-2">Open</a> ' +
+        '<button type="button" class="btn btn-sm btn-outline-danger ml-1 btn-remove-local" data-index="' + i + '">Remove</button>' +
         '</div>' +
         '</div>' +
         '</div>'
@@ -190,7 +190,7 @@
       btnExport.addEventListener('click', function () {
         var papers = getLocalPapers();
         if (papers.length === 0) {
-          alert('当前没有本机暂存的论文可导出。');
+          alert('No locally saved papers to export.');
           return;
         }
         var yaml = papers.map(function (p) {
@@ -206,16 +206,16 @@
           lines.push('    notes: "' + (p.notes || '').replace(/"/g, '\\"') + '"');
           return lines.join('\n');
         }).join('\n\n');
-        var full = '# 将下面内容追加到 _data/reading_papers.yml 的 papers: 下\n\n' + yaml;
+        var full = '# Paste the following under papers: in _data/reading_papers.yml\n\n' + yaml;
         var ta = document.createElement('textarea');
         ta.value = full;
         document.body.appendChild(ta);
         ta.select();
         try {
           document.execCommand('copy');
-          alert('已复制到剪贴板，请粘贴到 _data/reading_papers.yml 的 papers: 下列表中。');
+          alert('Copied to clipboard. Paste under papers: in _data/reading_papers.yml.');
         } catch (err) {
-          prompt('请手动复制以下 YAML：', full);
+          prompt('Copy the following YAML:', full);
         }
         document.body.removeChild(ta);
       });
