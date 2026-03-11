@@ -37,8 +37,11 @@ body_attr: ""
       <button type="button" class="btn btn-outline-secondary btn-sm ml-2" id="btn-export-yaml" title="Export locally saved papers as YAML for _data/reading_papers.yml">
         <i class="fas fa-download mr-1"></i> Export YAML
       </button>
-      <button type="button" class="btn btn-outline-success btn-sm ml-2" id="btn-sync-extension" title="Merge papers saved by the Chrome extension into the list below">
-        <i class="fas fa-sync-alt mr-1"></i> Sync from extension
+      <span class="btn btn-outline-success btn-sm ml-2" id="btn-sync-extension" title="Click the Reading List extension icon in the toolbar, then choose &quot;Open Reading List (merge saved papers)&quot;">
+        <i class="fas fa-puzzle-piece mr-1"></i> Sync: use extension icon → Open Reading List
+      </span>
+      <button type="button" class="btn btn-outline-warning btn-sm ml-2" id="btn-dedup-local" title="Remove duplicate entries (same URL) from local list, keep best title">
+        <i class="fas fa-compress-arrows-alt mr-1"></i> Deduplicate
       </button>
       <div id="auto-record-msg" class="small text-success mt-2" style="display: none;"></div>
     </div>

@@ -372,17 +372,22 @@
     applyFilter();
     initRelatedWork();
 
-    var ATTR_EXT = 'data-reading-list-extension';
+    function normalizeUrl(u) {
+      if (!u) return '';
+      return u.replace(/#.*$/, '').replace(/\/+$/, '') || u;
+    }
+
     function mergeFromExtension(autoPapers) {
       if (!autoPapers || !autoPapers.length) return;
       var local = getLocalPapers();
-      var urls = {};
-      local.forEach(function (p) { urls[p.url] = true; });
+      var seen = {};
+      local.forEach(function (p) { seen[normalizeUrl(p.url)] = true; });
       var mergedCount = 0;
       autoPapers.forEach(function (p) {
-        if (p.url && !urls[p.url]) {
-          urls[p.url] = true;
-          local.unshift({ title: p.title || '(No title)', url: p.url, date: p.date || '', keywords: p.keywords || [], notes: p.notes || '' });
+        var n = normalizeUrl(p.url);
+        if (p.url && !seen[n]) {
+          seen[n] = true;
+          local.unshift({ title: p.title || '(No title)', url: p.url.replace(/#.*$/, '').replace(/\/+$/, ''), date: p.date || '', keywords: p.keywords || [], notes: p.notes || '' });
           mergedCount++;
         }
       });
@@ -395,47 +400,50 @@
         if (msg) { msg.textContent = 'Extension: ' + mergedCount + ' paper(s) merged into list.'; msg.style.display = 'block'; }
       }
     }
-    window.__readingListMergeFromExtension = mergeFromExtension;
 
-    var pollCount = 0;
-    var pollId = setInterval(function () {
-      pollCount++;
-      var root = document.documentElement || document.body;
-      if (!root || !root.getAttribute) return;
-      var raw = root.getAttribute(ATTR_EXT);
-      if (raw) {
-        root.removeAttribute(ATTR_EXT);
-        try {
-          var list = JSON.parse(raw);
-          if (Array.isArray(list)) mergeFromExtension(list);
-        } catch (e) {}
-      }
-      if (pollCount >= 20) clearInterval(pollId);
-    }, 300);
-
-    function readExtensionDataOnce() {
-      var root = document.documentElement || document.body;
-      if (!root || !root.getAttribute) return;
-      var raw = root.getAttribute(ATTR_EXT);
-      if (raw) {
-        root.removeAttribute(ATTR_EXT);
-        try {
-          var list = JSON.parse(raw);
-          if (Array.isArray(list)) mergeFromExtension(list);
-        } catch (e) {}
-      }
+    var params = new URLSearchParams(window.location.search);
+    var payload = params.get('extension_payload');
+    if (payload) {
+      try {
+        var decoded = decodeURIComponent(escape(atob(payload)));
+        var list = JSON.parse(decoded);
+        if (Array.isArray(list)) mergeFromExtension(list);
+      } catch (e) {}
+      var clean = new URLSearchParams(window.location.search);
+      clean.delete('extension_payload');
+      var newSearch = clean.toString();
+      var newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash;
+      if (window.history && window.history.replaceState) window.history.replaceState(null, '', newUrl);
     }
+
     var btnSyncExt = document.getElementById('btn-sync-extension');
     if (btnSyncExt) {
-      btnSyncExt.addEventListener('click', function () {
-        window.dispatchEvent(new CustomEvent('reading-list-request-extension-papers'));
-        setTimeout(readExtensionDataOnce, 200);
-        setTimeout(readExtensionDataOnce, 600);
-        setTimeout(readExtensionDataOnce, 1000);
+      btnSyncExt.title = 'Click the Reading List extension icon in the toolbar, then "Open Reading List (merge saved papers)"';
+    }
+
+    var btnDedup = document.getElementById('btn-dedup-local');
+    if (btnDedup) {
+      btnDedup.addEventListener('click', function () {
+        var local = getLocalPapers();
+        var byNorm = {};
+        local.forEach(function (p) {
+          var n = normalizeUrl(p.url);
+          if (!n) return;
+          var title = (p.title || '').trim();
+          var hasTitle = title && title !== '(No title)';
+          if (!byNorm[n] || (hasTitle && (!byNorm[n].title || byNorm[n].title === '(No title)'))) {
+            byNorm[n] = { title: title || '(No title)', url: p.url, date: p.date || '', keywords: p.keywords || [], notes: p.notes || '' };
+          }
+        });
+        var out = Object.keys(byNorm).map(function (k) { return byNorm[k]; });
+        setLocalPapers(out);
+        renderLocalPapers();
+        updateKeywordPills();
+        applyFilter();
+        var msg = document.getElementById('auto-record-msg');
+        if (msg) { msg.textContent = 'Duplicates removed. ' + out.length + ' paper(s) in list.'; msg.style.display = 'block'; }
       });
     }
-    setTimeout(function () { window.dispatchEvent(new CustomEvent('reading-list-request-extension-papers')); }, 2000);
-    setTimeout(function () { window.dispatchEvent(new CustomEvent('reading-list-request-extension-papers')); }, 4500);
 
     var bookmarkletEl = document.getElementById('bookmarklet-add-current');
     if (bookmarkletEl) {
