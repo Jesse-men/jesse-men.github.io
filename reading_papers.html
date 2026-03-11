@@ -37,6 +37,10 @@ body_attr: ""
       <button type="button" class="btn btn-outline-secondary btn-sm ml-2" id="btn-export-yaml" title="Export locally saved papers as YAML for _data/reading_papers.yml">
         <i class="fas fa-download mr-1"></i> Export YAML
       </button>
+      <button type="button" class="btn btn-outline-success btn-sm ml-2" id="btn-sync-extension" title="Merge papers saved by the Chrome extension into the list below">
+        <i class="fas fa-sync-alt mr-1"></i> Sync from extension
+      </button>
+      <div id="auto-record-msg" class="small text-success mt-2" style="display: none;"></div>
     </div>
 
     <div class="collapse mb-4" id="add-paper-form">
@@ -117,14 +121,17 @@ body_attr: ""
         <div class="d-flex flex-wrap align-items-center mb-2">
           <button type="button" class="btn btn-primary btn-sm mr-2 mb-1" id="btn-copy-related-work-prompt"><i class="fas fa-copy mr-1"></i> Copy prompt for ChatGPT</button>
           <span class="small text-muted mr-2 mb-1">or</span>
-          <div class="input-group input-group-sm mb-1" style="max-width: 320px;">
-            <input type="password" class="form-control" id="input-openai-key" placeholder="OpenAI API key (optional)" autocomplete="off">
-            <div class="input-group-append">
-              <button type="button" class="btn btn-outline-secondary" id="btn-generate-with-openai">Generate</button>
+          <div class="mb-1">
+            <div class="input-group input-group-sm" style="max-width: 360px;">
+              <input type="password" class="form-control" id="input-openai-key" placeholder="OpenAI API key (optional)" autocomplete="off">
+              <div class="input-group-append">
+                <button type="button" class="btn btn-outline-secondary" id="btn-generate-with-openai">Generate</button>
+              </div>
             </div>
+            <small class="text-muted">Get a key at <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a>. Key is used only in your browser and not stored.</small>
           </div>
         </div>
-        <p class="small text-muted mb-0"><strong>Note:</strong> API key is used only in your browser and not stored. For production use, call the API from a backend.</p>
+        <p class="small text-muted mb-0"><strong>Note:</strong> For production use, call the API from a backend so the key is never exposed.</p>
         <div class="form-group mt-3 mb-0" id="related-work-output-wrap" style="display: none;">
           <label class="small font-weight-bold">Generated Related Work</label>
           <textarea class="form-control font-monospace small" id="related-work-output" rows="14" readonly></textarea>
@@ -134,13 +141,18 @@ body_attr: ""
     </div>
 
     <div class="mt-4 small text-muted">
-      <p class="mb-0">How it works:</p>
-      <ul class="mb-0 pl-3">
-        <li>The list above comes from <code>_data/reading_papers.yml</code>; edit that file in the repo to add or remove papers.</li>
-        <li>Use &quot;Add paper&quot; to save papers in your browser (localStorage); they persist after refresh.</li>
-        <li>Use &quot;Export YAML&quot; to copy locally saved papers as YAML, then paste under <code>papers:</code> in <code>_data/reading_papers.yml</code> to sync to the site.</li>
-        <li>Bookmark this page and paste the paper URL into the add form for quick recording.</li>
+      <p class="mb-1"><strong>How papers get into the list (no automatic tracking)</strong></p>
+      <p class="mb-2">This page does <em>not</em> track or detect what you read. Papers appear only if you add them in one of these ways:</p>
+      <ul class="mb-2 pl-3">
+        <li><strong>YAML file:</strong> Entries in the list come from <code>_data/reading_papers.yml</code>. Edit that file in the repo to add or remove papers (they show for everyone who visits the site).</li>
+        <li><strong>Add paper form:</strong> Click &quot;Add paper&quot; above, fill in title, URL, and keywords, then &quot;Save locally&quot;. Those are stored only in your browser (localStorage) and appear under &quot;Local storage&quot;. Use &quot;Export YAML&quot; if you want to merge them into the repo later.</li>
+        <li><strong>From a paper page:</strong> When you are on a paper (e.g. arXiv, IEEE), drag the link below to your bookmarks bar. Later, click that bookmark to open this page with the current URL and title pre-filled, then click &quot;Save locally&quot;.</li>
       </ul>
+      <p class="mb-1"><strong>Automatic recording (Chrome extension)</strong></p>
+      <p class="mb-2">Install the extension (<code>browser-extension/</code>): Chrome → <code>chrome://extensions</code> → Developer mode → Load unpacked → select the <code>browser-extension</code> folder. When the address bar is <strong>arxiv.org</strong>, <strong>ieeexplore.ieee.org</strong>, etc., the extension saves the page automatically. <strong>Then open this Reading List page</strong> — the saved papers are merged into the list (you may see “Extension: X auto-recorded paper(s) merged”). If you open a PDF inside another extension’s viewer, use the options below.</p>
+      <p class="mb-1"><strong>1) Right‑click → “Add current page to Reading List”</strong> (after installing the extension). Works on any tab, including PDF viewer pages; the extension will extract the paper URL and open this page with it pre-filled.</p>
+      <p class="mb-1"><strong>2) Bookmarklet — add current page:</strong> Drag the link below to your bookmarks bar. On a paper page (or inside a PDF viewer whose URL contains arxiv.org/…), click the bookmark to open this page with the URL and title pre-filled.</p>
+      <a id="bookmarklet-add-current" class="btn btn-sm btn-outline-secondary font-monospace" href="#" style="font-size: 0.85rem;">Add current page to Reading List</a>
     </div>
   </div>
 </div>

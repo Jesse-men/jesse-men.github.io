@@ -129,18 +129,24 @@
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
 
+  /** True if element is visible (not hidden by display). */
+  function isVisible(el) {
+    var style = window.getComputedStyle(el);
+    return style.display !== 'none' && style.visibility !== 'hidden';
+  }
+
   /** Get papers that are currently visible (after keyword filter). */
   function getVisiblePapers() {
     var items = document.querySelectorAll('.reading-paper-item');
     var papers = [];
     items.forEach(function (el) {
-      if (el.style.display === 'none') return;
-      var link = el.querySelector('h5 a');
+      if (!isVisible(el)) return;
+      var link = el.querySelector('h5 a') || el.querySelector('.flex-grow-1 a');
       var title = link ? link.textContent.trim() : '';
       var url = link ? (link.getAttribute('href') || '') : '';
       var notes = '';
-      var noteSpan = el.querySelector('.small.text-muted span .fa-sticky-note');
-      if (noteSpan && noteSpan.parentNode) notes = noteSpan.parentNode.textContent.replace(/\s+/g, ' ').trim();
+      var icon = el.querySelector('.fa-sticky-note');
+      if (icon && icon.parentNode) notes = icon.parentNode.textContent.replace(/\s+/g, ' ').trim();
       if (title) papers.push({ title: title, url: url, notes: notes });
     });
     return papers;
@@ -162,7 +168,6 @@
 
   function initRelatedWork() {
     var promptTa = document.getElementById('related-work-prompt');
-    var btnFill = document.getElementById('btn-fill-related-work-prompt');
     var btnCopyPrompt = document.getElementById('btn-copy-related-work-prompt');
     var btnOpenAI = document.getElementById('btn-generate-with-openai');
     var inputKey = document.getElementById('input-openai-key');
@@ -170,16 +175,18 @@
     var outputTa = document.getElementById('related-work-output');
     var btnCopyOutput = document.getElementById('btn-copy-related-work-output');
 
-    if (btnFill && promptTa) {
-      btnFill.addEventListener('click', function () {
-        var papers = getVisiblePapers();
-        if (papers.length === 0) {
-          alert('No papers in current view. Select a keyword or "All" to show papers first.');
-          return;
-        }
-        promptTa.value = buildRelatedWorkPrompt(papers);
-      });
-    }
+    document.body.addEventListener('click', function (e) {
+      var btnFill = e.target.id === 'btn-fill-related-work-prompt' ? e.target : (e.target.closest && e.target.closest('#btn-fill-related-work-prompt'));
+      if (!btnFill || !promptTa) return;
+      var papers = getVisiblePapers();
+      if (papers.length === 0) {
+        promptTa.value = 'No papers in current view. Select "All" or a keyword above that matches your papers, then click this button again.';
+        promptTa.classList.add('border', 'border-warning');
+        return;
+      }
+      promptTa.value = buildRelatedWorkPrompt(papers);
+      promptTa.classList.remove('border', 'border-warning');
+    });
 
     if (btnCopyPrompt && promptTa) {
       btnCopyPrompt.addEventListener('click', function () {
@@ -217,7 +224,7 @@
         var key = (inputKey.value || '').trim();
         var promptText = (promptTa.value || '').trim();
         if (!key) {
-          alert('Enter your OpenAI API key.');
+          alert('Please enter your OpenAI API key in the field above.\n\nYou can create one at: platform.openai.com/api-keys');
           return;
         }
         if (!promptText) {
@@ -364,6 +371,78 @@
     updateKeywordPills();
     applyFilter();
     initRelatedWork();
+
+    var ATTR_EXT = 'data-reading-list-extension';
+    function mergeFromExtension(autoPapers) {
+      if (!autoPapers || !autoPapers.length) return;
+      var local = getLocalPapers();
+      var urls = {};
+      local.forEach(function (p) { urls[p.url] = true; });
+      var mergedCount = 0;
+      autoPapers.forEach(function (p) {
+        if (p.url && !urls[p.url]) {
+          urls[p.url] = true;
+          local.unshift({ title: p.title || '(No title)', url: p.url, date: p.date || '', keywords: p.keywords || [], notes: p.notes || '' });
+          mergedCount++;
+        }
+      });
+      if (mergedCount > 0) {
+        setLocalPapers(local);
+        renderLocalPapers();
+        updateKeywordPills();
+        applyFilter();
+        var msg = document.getElementById('auto-record-msg');
+        if (msg) { msg.textContent = 'Extension: ' + mergedCount + ' paper(s) merged into list.'; msg.style.display = 'block'; }
+      }
+    }
+    window.__readingListMergeFromExtension = mergeFromExtension;
+
+    var pollCount = 0;
+    var pollId = setInterval(function () {
+      pollCount++;
+      var root = document.documentElement || document.body;
+      if (!root || !root.getAttribute) return;
+      var raw = root.getAttribute(ATTR_EXT);
+      if (raw) {
+        root.removeAttribute(ATTR_EXT);
+        try {
+          var list = JSON.parse(raw);
+          if (Array.isArray(list)) mergeFromExtension(list);
+        } catch (e) {}
+      }
+      if (pollCount >= 20) clearInterval(pollId);
+    }, 300);
+
+    function readExtensionDataOnce() {
+      var root = document.documentElement || document.body;
+      if (!root || !root.getAttribute) return;
+      var raw = root.getAttribute(ATTR_EXT);
+      if (raw) {
+        root.removeAttribute(ATTR_EXT);
+        try {
+          var list = JSON.parse(raw);
+          if (Array.isArray(list)) mergeFromExtension(list);
+        } catch (e) {}
+      }
+    }
+    var btnSyncExt = document.getElementById('btn-sync-extension');
+    if (btnSyncExt) {
+      btnSyncExt.addEventListener('click', function () {
+        window.dispatchEvent(new CustomEvent('reading-list-request-extension-papers'));
+        setTimeout(readExtensionDataOnce, 200);
+        setTimeout(readExtensionDataOnce, 600);
+        setTimeout(readExtensionDataOnce, 1000);
+      });
+    }
+    setTimeout(function () { window.dispatchEvent(new CustomEvent('reading-list-request-extension-papers')); }, 2000);
+    setTimeout(function () { window.dispatchEvent(new CustomEvent('reading-list-request-extension-papers')); }, 4500);
+
+    var bookmarkletEl = document.getElementById('bookmarklet-add-current');
+    if (bookmarkletEl) {
+      var base = window.location.origin + window.location.pathname.replace(/\?.*$/, '').replace(/#.*$/, '');
+      var code = "javascript:(function(){var u=location.href;var m=u.match(/(https?:\\/\\/[^\\s\"']*(?:arxiv\\.org|ieeexplore\\.ieee\\.org|dl\\.acm\\.org|springer\\.com|sciencedirect\\.com)[^\\s\"']*)/);if(m)u=m[1];window.open('" + base + "?add=1&url='+encodeURIComponent(u)+'&title='+encodeURIComponent(document.title),'_blank');})();";
+      bookmarkletEl.href = code;
+    }
   }
 
   if (document.readyState === 'loading') {
