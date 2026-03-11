@@ -1,0 +1,28 @@
+# 论文阅读记录 - 在 reading_papers 页面按关键词筛选
+# 每项: title(标题), url(链接), date(阅读/添加日期 YYYY-MM-DD), keywords(关键词列表), notes(可选备注)
+papers:
+  - title: "Enabling Haptic-Integrated Interactive Holographic Video Streaming"
+    url: https://ieeexplore.ieee.org/document/11209485
+    date: "2025-03-01"
+    keywords:
+      - 全息
+      - 触觉
+      - 5G
+      - 边缘计算
+    notes: ""
+  - title: "Generative AI for XR"
+    url: https://example.com/paper2
+    date: "2025-02-15"
+    keywords:
+      - 生成式AI
+      - XR
+      - 多媒体
+    notes: "与课题相关"
+  - title: "Spatiotemporal Point Cloud Compression"
+    url: https://example.com/paper3
+    date: "2025-01-20"
+    keywords:
+      - 点云
+      - 压缩
+      - 时空
+    notes: ""
