@@ -129,6 +129,145 @@
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
 
+  /** Get papers that are currently visible (after keyword filter). */
+  function getVisiblePapers() {
+    var items = document.querySelectorAll('.reading-paper-item');
+    var papers = [];
+    items.forEach(function (el) {
+      if (el.style.display === 'none') return;
+      var link = el.querySelector('h5 a');
+      var title = link ? link.textContent.trim() : '';
+      var url = link ? (link.getAttribute('href') || '') : '';
+      var notes = '';
+      var noteSpan = el.querySelector('.small.text-muted span .fa-sticky-note');
+      if (noteSpan && noteSpan.parentNode) notes = noteSpan.parentNode.textContent.replace(/\s+/g, ' ').trim();
+      if (title) papers.push({ title: title, url: url, notes: notes });
+    });
+    return papers;
+  }
+
+  /** Build prompt text for LLM to generate Related Work. */
+  function buildRelatedWorkPrompt(papers) {
+    if (!papers.length) return '';
+    var intro = 'Write a "Related Work" subsection for a research paper based on the following papers. ';
+    intro += 'Use in-text citations [1], [2], etc. and list full references at the end. ';
+    intro += 'Keep the narrative coherent and connect the works thematically.\n\nPapers:\n\n';
+    var list = papers.map(function (p, i) {
+      var line = '[' + (i + 1) + '] ' + p.title + ' — ' + p.url;
+      if (p.notes) line += '\n     (' + p.notes + ')';
+      return line;
+    }).join('\n\n');
+    return intro + list;
+  }
+
+  function initRelatedWork() {
+    var promptTa = document.getElementById('related-work-prompt');
+    var btnFill = document.getElementById('btn-fill-related-work-prompt');
+    var btnCopyPrompt = document.getElementById('btn-copy-related-work-prompt');
+    var btnOpenAI = document.getElementById('btn-generate-with-openai');
+    var inputKey = document.getElementById('input-openai-key');
+    var outputWrap = document.getElementById('related-work-output-wrap');
+    var outputTa = document.getElementById('related-work-output');
+    var btnCopyOutput = document.getElementById('btn-copy-related-work-output');
+
+    if (btnFill && promptTa) {
+      btnFill.addEventListener('click', function () {
+        var papers = getVisiblePapers();
+        if (papers.length === 0) {
+          alert('No papers in current view. Select a keyword or "All" to show papers first.');
+          return;
+        }
+        promptTa.value = buildRelatedWorkPrompt(papers);
+      });
+    }
+
+    if (btnCopyPrompt && promptTa) {
+      btnCopyPrompt.addEventListener('click', function () {
+        var text = promptTa.value.trim();
+        if (!text) {
+          alert('Prompt is empty. Click "Use current filter → fill prompt" first.');
+          return;
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(function () {
+            alert('Copied. Paste into ChatGPT or Claude.');
+          }).catch(function () { fallbackCopy(text); });
+        } else {
+          fallbackCopy(text);
+        }
+      });
+    }
+
+    function fallbackCopy(text) {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        alert('Copied. Paste into ChatGPT or Claude.');
+      } catch (e) {
+        prompt('Copy this prompt:', text);
+      }
+      document.body.removeChild(ta);
+    }
+
+    if (btnOpenAI && inputKey && promptTa && outputWrap && outputTa) {
+      btnOpenAI.addEventListener('click', function () {
+        var key = (inputKey.value || '').trim();
+        var promptText = (promptTa.value || '').trim();
+        if (!key) {
+          alert('Enter your OpenAI API key.');
+          return;
+        }
+        if (!promptText) {
+          alert('Fill the prompt first (use "Use current filter → fill prompt").');
+          return;
+        }
+        outputTa.value = 'Generating...';
+        outputWrap.style.display = 'block';
+        var req = {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + key
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              { role: 'user', content: promptText }
+            ],
+            temperature: 0.5
+          })
+        };
+        fetch('https://api.openai.com/v1/chat/completions', req)
+          .then(function (res) {
+            if (!res.ok) return res.json().then(function (j) { throw new Error(j.error && j.error.message ? j.error.message : res.statusText); });
+            return res.json();
+          })
+          .then(function (data) {
+            var content = data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.content : '';
+            outputTa.value = content || '(No content returned.)';
+          })
+          .catch(function (err) {
+            outputTa.value = 'Error: ' + (err.message || String(err));
+          });
+      });
+    }
+
+    if (btnCopyOutput && outputTa) {
+      btnCopyOutput.addEventListener('click', function () {
+        var text = outputTa.value;
+        if (!text) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(function () { alert('Copied.'); }).catch(function () { fallbackCopy(text); });
+        } else {
+          fallbackCopy(text);
+        }
+      });
+    }
+  }
+
   function init() {
     // Keyword filter
     document.querySelectorAll('.keyword-filter').forEach(function (btn) {
@@ -224,6 +363,7 @@
     renderLocalPapers();
     updateKeywordPills();
     applyFilter();
+    initRelatedWork();
   }
 
   if (document.readyState === 'loading') {
