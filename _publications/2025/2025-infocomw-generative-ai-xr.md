@@ -13,4 +13,6 @@ authors:
   - Carl Udora
   - Jingxuan Men
   - Rahim Tafazolli
+links:
+  IEEE Xplore: https://ieeexplore.ieee.org/document/11152969
 ---

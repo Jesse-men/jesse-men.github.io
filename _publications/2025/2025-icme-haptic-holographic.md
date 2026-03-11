@@ -1,5 +1,5 @@
 ---
-title:          "Enabling Haptic Integrated and Interactive Holographic Video Streaming with 5G Edge Computing"
+title:          "Enabling Haptic-Integrated Interactive Holographic Video Streaming Powered by 5G Edge Computing"
 date:           2025-06-01 12:00:00 +0800
 selected:       true
 pub:            "IEEE ICME"
@@ -13,4 +13,6 @@ authors:
   - Carlos Velez Redondo
   - Jingxuan Men
   - Rahim Tafazolli
+links:
+  IEEE Xplore: https://ieeexplore.ieee.org/document/11209485
 ---
