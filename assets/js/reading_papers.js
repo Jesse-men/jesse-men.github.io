@@ -118,14 +118,24 @@
     return div.innerHTML;
   }
 
+  function getAllPaperItems() {
+    var fromData = document.getElementById('papers-from-data');
+    var fromList = document.getElementById('papers-from-storage-list');
+    var items = [];
+    if (fromData) items = items.concat([].slice.call(fromData.querySelectorAll('.reading-paper-item')));
+    if (fromList) items = items.concat([].slice.call(fromList.querySelectorAll('.reading-paper-item')));
+    return items;
+  }
+
   function applyFilter() {
     var active = document.querySelector('.keyword-filter.active');
     var keyword = active ? (active.getAttribute('data-keyword') || '').trim() : '';
     var showAll = !keyword || keyword === '*';
-    document.querySelectorAll('.reading-paper-item').forEach(function (el) {
+    var keywordLower = keyword.toLowerCase();
+    getAllPaperItems().forEach(function (el) {
       var kw = parseKeywordsFromEl(el);
-      var show = showAll || kw.indexOf(keyword) !== -1;
-      el.style.display = show ? '' : 'none';
+      var match = showAll || kw.some(function (k) { return k.toLowerCase() === keywordLower; });
+      el.style.display = match ? '' : 'none';
     });
     var wrapper = document.getElementById('papers-from-storage-wrapper');
     if (wrapper) {
@@ -150,7 +160,7 @@
     if (!pillsContainer) return;
 
     var seen = {};
-    document.querySelectorAll('.reading-paper-item').forEach(function (el) {
+    getAllPaperItems().forEach(function (el) {
       parseKeywordsFromEl(el).forEach(function (k) { seen[k] = true; });
     });
 
@@ -191,7 +201,7 @@
 
   /** Get papers that are currently visible (after keyword filter). */
   function getVisiblePapers() {
-    var items = document.querySelectorAll('.reading-paper-item');
+    var items = getAllPaperItems();
     var papers = [];
     items.forEach(function (el) {
       if (!isVisible(el)) return;
