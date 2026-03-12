@@ -84,11 +84,8 @@
     var keyword = active ? (active.getAttribute('data-keyword') || '').trim() : '';
     var showAll = !keyword || keyword === '*';
     document.querySelectorAll('.reading-paper-item').forEach(function (el) {
-      var kwStr = (el.getAttribute('data-keywords') || '').trim();
-      var kw = kwStr ? kwStr.split(/[\s,]+/).map(function (k) { return k.trim(); }).filter(Boolean) : [];
-      var isLocal = el.getAttribute('data-source') === 'local';
-      var hasNoKeywords = kw.length === 0;
-      var show = showAll || kw.indexOf(keyword) !== -1 || (isLocal && hasNoKeywords);
+      var kw = parseKeywordsFromEl(el);
+      var show = showAll || kw.indexOf(keyword) !== -1;
       el.style.display = show ? '' : 'none';
     });
     var wrapper = document.getElementById('papers-from-storage-wrapper');
@@ -103,15 +100,19 @@
     }
   }
 
+  function parseKeywordsFromEl(el) {
+    var kwStr = (el.getAttribute('data-keywords') || '').trim();
+    if (!kwStr) return [];
+    return kwStr.split(/[,，]/).map(function (k) { return k.trim(); }).filter(Boolean);
+  }
+
   function updateKeywordPills() {
     var pillsContainer = document.getElementById('keyword-pills');
     if (!pillsContainer) return;
 
     var seen = {};
-    pillsContainer.querySelectorAll('.keyword-filter[data-keyword=""]').forEach(function () {});
     document.querySelectorAll('.reading-paper-item').forEach(function (el) {
-      var kw = (el.getAttribute('data-keywords') || '').split(',').map(function (k) { return k.trim(); }).filter(Boolean);
-      kw.forEach(function (k) { seen[k] = true; });
+      parseKeywordsFromEl(el).forEach(function (k) { seen[k] = true; });
     });
 
     var existing = {};
