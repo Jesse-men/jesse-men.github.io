@@ -81,13 +81,26 @@
 
   function applyFilter() {
     var active = document.querySelector('.keyword-filter.active');
-    var keyword = active ? (active.getAttribute('data-keyword') || '') : '';
+    var keyword = active ? (active.getAttribute('data-keyword') || '').trim() : '';
     var showAll = !keyword || keyword === '*';
     document.querySelectorAll('.reading-paper-item').forEach(function (el) {
-      var kw = (el.getAttribute('data-keywords') || '').split(',').map(function (k) { return k.trim(); });
-      var show = showAll || kw.indexOf(keyword) !== -1;
+      var kwStr = (el.getAttribute('data-keywords') || '').trim();
+      var kw = kwStr ? kwStr.split(/[\s,]+/).map(function (k) { return k.trim(); }).filter(Boolean) : [];
+      var isLocal = el.getAttribute('data-source') === 'local';
+      var hasNoKeywords = kw.length === 0;
+      var show = showAll || kw.indexOf(keyword) !== -1 || (isLocal && hasNoKeywords);
       el.style.display = show ? '' : 'none';
     });
+    var wrapper = document.getElementById('papers-from-storage-wrapper');
+    if (wrapper) {
+      var list = document.getElementById('papers-from-storage-list');
+      var localItems = list ? list.querySelectorAll('.reading-paper-item') : [];
+      var anyVisible = false;
+      for (var i = 0; i < localItems.length; i++) {
+        if (localItems[i].style.display !== 'none') { anyVisible = true; break; }
+      }
+      if (localItems.length > 0) wrapper.style.display = anyVisible ? 'block' : 'none';
+    }
   }
 
   function updateKeywordPills() {
@@ -277,10 +290,17 @@
   }
 
   function init() {
-    // Keyword filter
-    document.querySelectorAll('.keyword-filter').forEach(function (btn) {
-      btn.addEventListener('click', onKeywordClick);
-    });
+    // Keyword filter: event delegation so all pills (YAML + dynamic) trigger filter for all papers (YAML + local)
+    var pillsContainer = document.getElementById('keyword-pills');
+    if (pillsContainer) {
+      pillsContainer.addEventListener('click', function (e) {
+        var btn = e.target && e.target.closest && e.target.closest('.keyword-filter');
+        if (!btn) return;
+        pillsContainer.querySelectorAll('.keyword-filter').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        applyFilter();
+      });
+    }
 
     // Add form
     var form = document.getElementById('form-add-paper');
