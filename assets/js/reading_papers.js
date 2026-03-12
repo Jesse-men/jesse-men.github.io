@@ -188,6 +188,11 @@
     return items;
   }
 
+  function getTitleFromPaperItem(el) {
+    var link = el.querySelector('h5 a') || el.querySelector('.flex-grow-1 a');
+    return link ? (link.textContent || '').trim() : '';
+  }
+
   function applyFilter() {
     var searchInput = document.getElementById('filter-by-abstract');
     var searchText = (searchInput && searchInput.value) ? searchInput.value.trim() : '';
@@ -198,10 +203,12 @@
     var keywordLower = keyword.toLowerCase();
     getAllPaperItems().forEach(function (el) {
       var abstractText = (el.getAttribute('data-abstract') || '').toLowerCase();
+      var titleText = getTitleFromPaperItem(el).toLowerCase();
       var kw = parseKeywordsFromEl(el);
       var inAbstract = abstractText.indexOf(keywordLower) !== -1;
+      var inTitle = titleText.indexOf(keywordLower) !== -1;
       var inTags = kw.some(function (k) { return k.toLowerCase() === keywordLower; });
-      var match = showAll || inAbstract || inTags;
+      var match = showAll || inAbstract || inTitle || inTags;
       el.style.display = match ? '' : 'none';
     });
     var wrapper = document.getElementById('papers-from-storage-wrapper');
@@ -222,6 +229,46 @@
     return kwStr.split(/[,，]/).map(function (k) { return k.trim(); }).filter(Boolean);
   }
 
+  var ABSTRACT_STOPWORDS = {
+    the: 1, and: 1, for: 1, are: 1, but: 1, not: 1, you: 1, all: 1, can: 1, had: 1, her: 1, was: 1, one: 1, our: 1, out: 1,
+    has: 1, have: 1, this: 1, that: 1, with: 1, from: 1, they: 1, been: 1, were: 1, will: 1, would: 1, could: 1, should: 1,
+    may: 1, might: 1, its: 1, into: 1, than: 1, then: 1, when: 1, which: 1, while: 1, where: 1, what: 1, them: 1, their: 1,
+    there: 1, these: 1, those: 1, each: 1, other: 1, some: 1, such: 1, only: 1, more: 1, most: 1, also: 1, over: 1, after: 1,
+    before: 1, between: 1, through: 1, during: 1, without: 1, same: 1, both: 1, about: 1, based: 1, using: 1, used: 1,
+    results: 1, result: 1, paper: 1, study: 1, method: 1, methods: 1, approach: 1, system: 1, systems: 1, data: 1,
+    model: 1, models: 1, proposed: 1, show: 1, shown: 1, present: 1, presented: 1, we: 1, use: 1
+  };
+
+  function extractWordsFromText(text) {
+    if (!text || !text.length) return [];
+    var words = text.replace(/[^\w\s'-]/g, ' ').split(/\s+/).map(function (w) { var x = (w || '').replace(/^['"]|['"]$/g, '').trim(); return x ? x.toLowerCase() : ''; }).filter(Boolean);
+    return words;
+  }
+
+  /** Keywords from abstracts and titles: words length>=4, not stopword. Word must appear in at least minPapers (default 1 so title-only papers get pills). */
+  function getAbstractDerivedKeywords(minPapers) {
+    minPapers = minPapers != null ? minPapers : 1;
+    var wordCount = {};
+    getAllPaperItems().forEach(function (el) {
+      var seenInThis = {};
+      var abs = (el.getAttribute('data-abstract') || '').toLowerCase();
+      extractWordsFromText(abs).forEach(function (w) {
+        if (w.length < 4 || /^\d+$/.test(w) || ABSTRACT_STOPWORDS[w]) return;
+        if (!seenInThis[w]) { seenInThis[w] = true; wordCount[w] = (wordCount[w] || 0) + 1; }
+      });
+      var title = getTitleFromPaperItem(el).toLowerCase();
+      extractWordsFromText(title).forEach(function (w) {
+        if (w.length < 4 || /^\d+$/.test(w) || ABSTRACT_STOPWORDS[w]) return;
+        if (!seenInThis[w]) { seenInThis[w] = true; wordCount[w] = (wordCount[w] || 0) + 1; }
+      });
+    });
+    var out = {};
+    Object.keys(wordCount).forEach(function (w) {
+      if (wordCount[w] >= minPapers) out[w] = true;
+    });
+    return out;
+  }
+
   function updateKeywordPills() {
     var pillsContainer = document.getElementById('keyword-pills');
     if (!pillsContainer) return;
@@ -230,6 +277,8 @@
     getAllPaperItems().forEach(function (el) {
       parseKeywordsFromEl(el).forEach(function (k) { seen[k] = true; });
     });
+    var fromAbstract = getAbstractDerivedKeywords(1);
+    Object.keys(fromAbstract).forEach(function (k) { seen[k] = true; });
 
     var existing = {};
     pillsContainer.querySelectorAll('.keyword-filter').forEach(function (btn) {
@@ -244,6 +293,7 @@
       btn.className = 'btn btn-outline-primary btn-sm rounded-pill mr-1 mb-1 keyword-filter';
       btn.setAttribute('data-keyword', k);
       btn.textContent = k;
+      btn.title = fromAbstract[k] ? 'From abstract (click to filter)' : '';
       btn.addEventListener('click', onKeywordClick);
       pillsContainer.appendChild(btn);
     });
