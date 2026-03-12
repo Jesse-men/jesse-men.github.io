@@ -330,42 +330,73 @@
       }
     }
 
-    // Export YAML
+    // Export YAML — show in a dynamically created overlay (works even if page HTML is old/cached)
     var btnExport = document.getElementById('btn-export-yaml');
-    if (btnExport) {
-      btnExport.addEventListener('click', function () {
-        var papers = getLocalPapers();
-        if (papers.length === 0) {
-          alert('No locally saved papers to export.');
-          return;
-        }
-        var yaml = papers.map(function (p) {
-          var lines = [
-            '  - title: "' + (p.title || '').replace(/"/g, '\\"') + '"',
-            '    url: ' + (p.url || ''),
-            '    date: "' + (p.date || '') + '"',
-            '    keywords:'
-          ];
-          (p.keywords || []).forEach(function (k) {
-            lines.push('      - ' + (k.indexOf(' ') >= 0 || k.indexOf(':') >= 0 ? '"' + k.replace(/"/g, '\\"') + '"' : k));
-          });
-          lines.push('    notes: "' + (p.notes || '').replace(/"/g, '\\"') + '"');
-          return lines.join('\n');
-        }).join('\n\n');
-        var full = '# Paste the following under papers: in _data/reading_papers.yml\n\n' + yaml;
-        var ta = document.createElement('textarea');
-        ta.value = full;
-        document.body.appendChild(ta);
-        ta.select();
+    function doExportYaml() {
+      var papers = getLocalPapers();
+      if (papers.length === 0) {
+        alert('No locally saved papers to export.');
+        return;
+      }
+      var yaml = papers.map(function (p) {
+        var lines = [
+          '  - title: "' + (p.title || '').replace(/"/g, '\\"') + '"',
+          '    url: ' + (p.url || ''),
+          '    date: "' + (p.date || '') + '"',
+          '    keywords:'
+        ];
+        (p.keywords || []).forEach(function (k) {
+          lines.push('      - ' + (k.indexOf(' ') >= 0 || k.indexOf(':') >= 0 ? '"' + k.replace(/"/g, '\\"') + '"' : k));
+        });
+        lines.push('    notes: "' + (p.notes || '').replace(/"/g, '\\"') + '"');
+        return lines.join('\n');
+      }).join('\n\n');
+      var full = '# Paste under papers: in _data/reading_papers.yml\n\n' + yaml;
+      var ta = document.createElement('textarea');
+      ta.value = full;
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+      } catch (err) {}
+      document.body.removeChild(ta);
+
+      var overlay = document.createElement('div');
+      overlay.id = 'reading-list-export-overlay';
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+      var box = document.createElement('div');
+      box.style.cssText = 'background:#fff;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.2);max-width:90%;max-height:85vh;width:640px;display:flex;flex-direction:column;overflow:hidden;';
+      box.innerHTML =
+        '<div style="padding:16px 20px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">' +
+        '<strong>Exported YAML</strong>' +
+        '<button type="button" id="reading-list-export-close" style="background:none;border:none;font-size:24px;line-height:1;cursor:pointer;color:#666;">&times;</button>' +
+        '</div>' +
+        '<div style="padding:16px 20px;overflow:auto;flex:1;">' +
+        '<p class="small text-muted" style="margin-bottom:8px;">Paste below under <code>papers:</code> in <code>_data/reading_papers.yml</code></p>' +
+        '<textarea id="reading-list-export-text" readonly style="width:100%;height:280px;font-family:monospace;font-size:13px;padding:10px;border:1px solid #ccc;border-radius:4px;resize:vertical;"></textarea>' +
+        '<button type="button" id="reading-list-export-copy" class="btn btn-primary btn-sm mt-2"><i class="fas fa-copy mr-1"></i> Copy</button>' +
+        '</div>';
+      var textarea = box.querySelector('#reading-list-export-text');
+      textarea.value = full;
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+
+      function closeOverlay() {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      }
+      overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) closeOverlay();
+      });
+      box.querySelector('#reading-list-export-close').addEventListener('click', closeOverlay);
+      box.querySelector('#reading-list-export-copy').addEventListener('click', function () {
+        textarea.select();
         try {
           document.execCommand('copy');
-          alert('Copied to clipboard. Paste under papers: in _data/reading_papers.yml.');
-        } catch (err) {
-          prompt('Copy the following YAML:', full);
-        }
-        document.body.removeChild(ta);
+          alert('Copied.');
+        } catch (e) {}
       });
     }
+    if (btnExport) btnExport.addEventListener('click', doExportYaml);
 
     renderLocalPapers();
     updateKeywordPills();
@@ -421,29 +452,31 @@
       btnSyncExt.title = 'Click the Reading List extension icon in the toolbar, then "Open Reading List (merge saved papers)"';
     }
 
-    var btnDedup = document.getElementById('btn-dedup-local');
-    if (btnDedup) {
-      btnDedup.addEventListener('click', function () {
-        var local = getLocalPapers();
-        var byNorm = {};
-        local.forEach(function (p) {
-          var n = normalizeUrl(p.url);
-          if (!n) return;
-          var title = (p.title || '').trim();
-          var hasTitle = title && title !== '(No title)';
-          if (!byNorm[n] || (hasTitle && (!byNorm[n].title || byNorm[n].title === '(No title)'))) {
-            byNorm[n] = { title: title || '(No title)', url: p.url, date: p.date || '', keywords: p.keywords || [], notes: p.notes || '' };
-          }
-        });
-        var out = Object.keys(byNorm).map(function (k) { return byNorm[k]; });
-        setLocalPapers(out);
-        renderLocalPapers();
-        updateKeywordPills();
-        applyFilter();
-        var msg = document.getElementById('auto-record-msg');
-        if (msg) { msg.textContent = 'Duplicates removed. ' + out.length + ' paper(s) in list.'; msg.style.display = 'block'; }
+    document.body.addEventListener('click', function (e) {
+      var btn = e.target && (e.target.id === 'btn-dedup-local' ? e.target : (e.target.closest && e.target.closest('#btn-dedup-local')));
+      if (!btn) return;
+      var local = getLocalPapers();
+      var byNorm = {};
+      local.forEach(function (p) {
+        var n = normalizeUrl(p.url);
+        if (!n) return;
+        var title = (p.title || '').trim();
+        var hasTitle = title && title !== '(No title)';
+        if (!byNorm[n] || (hasTitle && (!byNorm[n].title || byNorm[n].title === '(No title)'))) {
+          byNorm[n] = { title: title || '(No title)', url: p.url, date: p.date || '', keywords: p.keywords || [], notes: p.notes || '' };
+        }
       });
-    }
+      var out = Object.keys(byNorm).map(function (k) { return byNorm[k]; });
+      setLocalPapers(out);
+      renderLocalPapers();
+      updateKeywordPills();
+      applyFilter();
+      var msg = document.getElementById('auto-record-msg');
+      if (msg) {
+        msg.textContent = local.length === out.length ? 'No duplicates. ' + out.length + ' paper(s).' : 'Duplicates removed. ' + out.length + ' paper(s) in list.';
+        msg.style.display = 'block';
+      }
+    });
 
     var bookmarkletEl = document.getElementById('bookmarklet-add-current');
     if (bookmarkletEl) {
