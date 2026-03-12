@@ -1,5 +1,5 @@
-# Reading list — filter by keyword on the reading_papers page
-# Each item: title, url, date (YYYY-MM-DD), keywords (list), notes (optional)
+# Reading list — filter by keyword on the reading_papers page (matches abstract + keyword tags)
+# Each item: title, url, date, keywords, notes, abstract (optional; used for keyword-in-abstract filter)
 papers:
   - title: "Enabling Haptic-Integrated Interactive Holographic Video Streaming"
     url: https://ieeexplore.ieee.org/document/11209485
@@ -10,6 +10,7 @@ papers:
       - 5G
       - edge computing
     notes: ""
+    abstract: "We present a system for holographic video streaming with haptic feedback, leveraging 5G and edge computing for low latency."
   - title: "Generative AI for XR"
     url: https://example.com/paper2
     date: "2025-02-15"
@@ -18,6 +19,7 @@ papers:
       - XR
       - multimedia
     notes: "Related to my research"
+    abstract: "This paper surveys generative AI methods for extended reality (XR) and multimedia applications."
   - title: "Spatiotemporal Point Cloud Compression"
     url: https://example.com/paper3
     date: "2025-01-20"
@@ -26,3 +28,4 @@ papers:
       - compression
       - spatiotemporal
     notes: ""
+    abstract: "We propose spatiotemporal compression for point cloud data to reduce storage and bandwidth."

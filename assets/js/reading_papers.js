@@ -34,10 +34,11 @@
       var keywords = (p.keywords || []).map(function (k) {
         return '<span class="badge badge-light border mr-1">' + escapeHtml(k) + '</span>';
       }).join('');
+      var abstractAttr = (p.abstract || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, ' ');
       return (
         '<div class="reading-paper-item border-bottom border-gray p-3" data-keywords="' +
         escapeHtml(kwStr(p)) +
-        '" data-source="local" data-local-index="' + i + '">' +
+        '" data-abstract="' + abstractAttr + '" data-source="local" data-local-index="' + i + '">' +
         '<div class="d-flex justify-content-between align-items-start flex-wrap">' +
         '<div class="flex-grow-1">' +
         '<h5 class="mt-0 mb-1 font-weight-normal">' +
@@ -128,13 +129,19 @@
   }
 
   function applyFilter() {
+    var searchInput = document.getElementById('filter-by-abstract');
+    var searchText = (searchInput && searchInput.value) ? searchInput.value.trim() : '';
     var active = document.querySelector('.keyword-filter.active');
-    var keyword = active ? (active.getAttribute('data-keyword') || '').trim() : '';
+    var pillKeyword = active ? (active.getAttribute('data-keyword') || '').trim() : '';
+    var keyword = searchText || pillKeyword;
     var showAll = !keyword || keyword === '*';
     var keywordLower = keyword.toLowerCase();
     getAllPaperItems().forEach(function (el) {
+      var abstractText = (el.getAttribute('data-abstract') || '').toLowerCase();
       var kw = parseKeywordsFromEl(el);
-      var match = showAll || kw.some(function (k) { return k.toLowerCase() === keywordLower; });
+      var inAbstract = abstractText.indexOf(keywordLower) !== -1;
+      var inTags = kw.some(function (k) { return k.toLowerCase() === keywordLower; });
+      var match = showAll || inAbstract || inTags;
       el.style.display = match ? '' : 'none';
     });
     var wrapper = document.getElementById('papers-from-storage-wrapper');
@@ -351,6 +358,11 @@
         applyFilter();
       });
     }
+    var filterByAbstract = document.getElementById('filter-by-abstract');
+    if (filterByAbstract) {
+      filterByAbstract.addEventListener('input', applyFilter);
+      filterByAbstract.addEventListener('keyup', applyFilter);
+    }
 
     // Add form
     var form = document.getElementById('form-add-paper');
@@ -361,6 +373,7 @@
         var url = document.getElementById('input-url').value.trim();
         var kwStr = (document.getElementById('input-keywords').value || '').trim();
         var notes = (document.getElementById('input-notes').value || '').trim();
+        var abstract = (document.getElementById('input-abstract') && document.getElementById('input-abstract').value) ? document.getElementById('input-abstract').value.trim() : '';
         var keywords = kwStr ? kwStr.split(/[,，]/).map(function (k) { return k.trim(); }).filter(Boolean) : [];
 
         var papers = getLocalPapers();
@@ -369,7 +382,8 @@
           url: url,
           date: todayStr(),
           keywords: keywords,
-          notes: notes
+          notes: notes,
+          abstract: abstract
         });
         setLocalPapers(papers);
 
@@ -377,6 +391,7 @@
         document.getElementById('input-url').value = '';
         document.getElementById('input-keywords').value = '';
         document.getElementById('input-notes').value = '';
+        if (document.getElementById('input-abstract')) document.getElementById('input-abstract').value = '';
 
         renderLocalPapers();
         updateKeywordPills();
@@ -430,7 +445,7 @@
         var goodTitle = title && !isPdfFilename(title) && title !== '(No title)';
         var cur = byCanon[canon];
         if (!cur) {
-          byCanon[canon] = { title: title || '(No title)', url: canon, date: p.date || '', keywords: p.keywords || [], notes: p.notes || '' };
+          byCanon[canon] = { title: title || '(No title)', url: canon, date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '' };
           return;
         }
         var curGood = cur.title && !isPdfFilename(cur.title) && cur.title !== '(No title)';
@@ -438,11 +453,13 @@
           cur.title = title;
           cur.keywords = p.keywords || [];
           cur.notes = p.notes || '';
+          cur.abstract = p.abstract || cur.abstract;
           cur.date = p.date || cur.date;
         } else if (goodTitle && curGood && title.length > (cur.title || '').length) {
           cur.title = title;
           cur.keywords = p.keywords || cur.keywords;
           cur.notes = p.notes || cur.notes;
+          cur.abstract = p.abstract || cur.abstract;
           cur.date = p.date || cur.date;
         }
       });
@@ -450,7 +467,7 @@
         var p = byCanon[k];
         if (isPdfFilename(p.title)) {
           var idMatch = p.url.match(/arxiv\.org\/abs\/(\d+\.\d+)/);
-          p = { title: idMatch ? 'arXiv ' + idMatch[1] : p.title, url: p.url, date: p.date, keywords: p.keywords, notes: p.notes };
+          p = { title: idMatch ? 'arXiv ' + idMatch[1] : p.title, url: p.url, date: p.date, keywords: p.keywords, notes: p.notes, abstract: p.abstract || '' };
         }
         return p;
       });
@@ -465,6 +482,8 @@
           lines.push('      - ' + (k.indexOf(' ') >= 0 || k.indexOf(':') >= 0 ? '"' + k.replace(/"/g, '\\"') + '"' : k));
         });
         lines.push('    notes: "' + (p.notes || '').replace(/"/g, '\\"') + '"');
+        var abs = (p.abstract || '').replace(/"/g, '\\"').replace(/\n/g, ' ');
+        if (abs) lines.push('    abstract: "' + abs + '"');
         return lines.join('\n');
       }).join('\n\n');
       var full = '# Paste under papers: in _data/reading_papers.yml\n\n' + yaml;
@@ -552,7 +571,7 @@
         var n = normalizeUrl(p.url);
         if (p.url && !seen[n]) {
           seen[n] = true;
-          local.unshift({ title: p.title || '(No title)', url: p.url.replace(/#.*$/, '').replace(/\/+$/, ''), date: p.date || '', keywords: p.keywords || [], notes: p.notes || '' });
+          local.unshift({ title: p.title || '(No title)', url: p.url.replace(/#.*$/, '').replace(/\/+$/, ''), date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '' });
           mergedCount++;
         }
       });
