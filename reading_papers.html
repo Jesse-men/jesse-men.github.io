@@ -8,13 +8,14 @@ body_attr: ""
 
 <div class="row py-4">
   <div class="col-12">
-    <h1 class="mb-2">Reading List</h1>
+    <h1 class="mb-2">Reading List <span class="small font-weight-normal text-muted">(v10)</span></h1>
     <p class="text-muted mb-4">Track papers you've read on the web and filter by keywords.</p>
 
     <!-- Keyword filter -->
     <div class="mb-4">
       <span class="mr-2 text-secondary">Filter by keyword:</span>
-      <div id="keyword-pills" class="d-inline-flex flex-wrap align-items-center">
+      <span class="small text-muted ml-1">(from all papers; Local papers need keywords below to be found)</span>
+      <div id="keyword-pills" class="d-inline-flex flex-wrap align-items-center mt-1">
         <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill mr-1 mb-1 keyword-filter active" data-keyword="">All</button>
         {% assign all_keywords = "" | split: "" %}
         {% for p in site.data.reading_papers.papers %}
@@ -163,6 +164,8 @@ body_attr: ""
     </div>
 
     <div class="mt-4 small text-muted">
+      <p class="mb-1"><strong>How keyword filter works</strong></p>
+      <p class="mb-2">Each paper has <strong>keywords</strong> (comma-separated). Click a keyword pill to show only papers that contain that keyword. <strong>YAML papers</strong> get keywords from <code>_data/reading_papers.yml</code>. <strong>Local papers</strong> get keywords only if you fill “Keywords” when adding (Quick add or bookmarklet). Papers added by the extension have no keywords by default, so they only appear when you choose “All”; to make them show under a keyword, use “Edit keywords” on that Local row.</p>
       <p class="mb-1"><strong>How papers get into the list (no automatic tracking)</strong></p>
       <p class="mb-2">This page does <em>not</em> track or detect what you read. Papers appear only if you add them in one of these ways:</p>
       <ul class="mb-2 pl-3">
@@ -179,4 +182,4 @@ body_attr: ""
   </div>
 </div>
 
-<script src="{{ '/assets/js/reading_papers.js' | relative_url }}?v=8"></script>
+<script src="{{ '/assets/js/reading_papers.js' | relative_url }}?v=10"></script>

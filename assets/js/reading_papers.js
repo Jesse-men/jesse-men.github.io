@@ -29,14 +29,15 @@
     }
 
     wrapper.style.display = 'block';
+    var kwStr = function (p) { return (p.keywords || []).join(','); };
     list.innerHTML = papers.map(function (p, i) {
       var keywords = (p.keywords || []).map(function (k) {
         return '<span class="badge badge-light border mr-1">' + escapeHtml(k) + '</span>';
       }).join('');
       return (
         '<div class="reading-paper-item border-bottom border-gray p-3" data-keywords="' +
-        escapeHtml((p.keywords || []).join(',')) +
-        '" data-source="local">' +
+        escapeHtml(kwStr(p)) +
+        '" data-source="local" data-local-index="' + i + '">' +
         '<div class="d-flex justify-content-between align-items-start flex-wrap">' +
         '<div class="flex-grow-1">' +
         '<h5 class="mt-0 mb-1 font-weight-normal">' +
@@ -48,8 +49,13 @@
         (p.notes ? '<span><i class="far fa-sticky-note mr-1"></i>' + escapeHtml(p.notes) + '</span>' : '') +
         '</p>' +
         '<div class="keyword-tags">' + keywords + '</div>' +
+        '<div class="mt-2 local-edit-keywords" style="display:none;">' +
+        '<input type="text" class="form-control form-control-sm d-inline-block mr-1" style="width:220px;" placeholder="Keywords, comma-separated" data-edit-keywords>' +
+        '<button type="button" class="btn btn-sm btn-success btn-save-keywords" data-index="' + i + '">Save</button>' +
+        '</div>' +
         '</div>' +
         '<div>' +
+        '<button type="button" class="btn btn-sm btn-outline-secondary ml-1 btn-edit-keywords" data-index="' + i + '" title="Add or edit keywords so this paper appears when filtering">Edit keywords</button> ' +
         '<a href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary ml-2">Open</a> ' +
         '<button type="button" class="btn btn-sm btn-outline-danger ml-1 btn-remove-local" data-index="' + i + '">Remove</button>' +
         '</div>' +
@@ -58,7 +64,6 @@
       );
     }).join('');
 
-    // Remove buttons
     list.querySelectorAll('.btn-remove-local').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var idx = parseInt(btn.getAttribute('data-index'), 10);
@@ -68,6 +73,40 @@
         renderLocalPapers();
         updateKeywordPills();
         applyFilter();
+      });
+    });
+
+    list.querySelectorAll('.btn-edit-keywords').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var row = btn.closest('.reading-paper-item');
+        var editDiv = row ? row.querySelector('.local-edit-keywords') : null;
+        var input = row ? row.querySelector('[data-edit-keywords]') : null;
+        if (!editDiv || !input) return;
+        var papers = getLocalPapers();
+        var idx = parseInt(btn.getAttribute('data-index'), 10);
+        if (idx < 0 || idx >= papers.length) return;
+        input.value = (papers[idx].keywords || []).join(', ');
+        editDiv.style.display = 'block';
+        input.focus();
+      });
+    });
+
+    list.querySelectorAll('.btn-save-keywords').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var row = btn.closest('.reading-paper-item');
+        var editDiv = row ? row.querySelector('.local-edit-keywords') : null;
+        var input = row ? row.querySelector('[data-edit-keywords]') : null;
+        if (!editDiv || !input) return;
+        var papers = getLocalPapers();
+        var idx = parseInt(btn.getAttribute('data-index'), 10);
+        if (idx < 0 || idx >= papers.length) return;
+        var val = (input.value || '').trim();
+        papers[idx].keywords = val ? val.split(/[,，]/).map(function (k) { return k.trim(); }).filter(Boolean) : [];
+        setLocalPapers(papers);
+        renderLocalPapers();
+        updateKeywordPills();
+        applyFilter();
+        editDiv.style.display = 'none';
       });
     });
   }
