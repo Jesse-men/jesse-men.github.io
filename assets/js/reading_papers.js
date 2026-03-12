@@ -17,6 +17,66 @@
     localStorage.setItem(STORAGE_KEY, JSON.stringify(papers));
   }
 
+  function canonicalUrl(u) {
+    if (!u) return '';
+    var x = u.replace(/#.*$/, '').replace(/\/+$/, '');
+    var m = x.match(/ieeexplore\.ieee\.org\/document\/(\d+)/i);
+    if (m) return 'https://ieeexplore.ieee.org/document/' + m[1];
+    m = x.match(/arxiv\.org\/(?:pdf|abs)\/(\d+\.\d+)(?:v\d+)?/i);
+    if (m) return 'https://arxiv.org/abs/' + m[1];
+    m = x.match(/dl\.acm\.org\/doi\/([^/?]+)/i);
+    if (m) return 'https://dl.acm.org/doi/' + m[1];
+    m = x.match(/link\.springer\.com\/(article|chapter)\/([^/?]+)/i);
+    if (m) return 'https://link.springer.com/' + m[1] + '/' + m[2];
+    m = x.match(/sciencedirect\.com\/science\/article\/([^/?]+)/i);
+    if (m) return 'https://www.sciencedirect.com/science/article/' + m[1];
+    return x || u;
+  }
+
+  function isJunkTitle(title) {
+    if (!title || title.length < 3) return true;
+    var t = (title || '').trim();
+    if (/^IEEE\s*Xplore\s*$/i.test(t)) return true;
+    if (/^IEEE\s*Xplore\s*Login$/i.test(t)) return true;
+    if (/^IEEE\s*Xplore\s*Full-Text\s*PDF/i.test(t)) return true;
+    if (/^Sign\s*in$/i.test(t)) return true;
+    if (/^Login$/i.test(t)) return true;
+    if (/^arXiv\s+[\d.]+\s*$/i.test(t)) return true;
+    return false;
+  }
+
+  function runDedup() {
+    var local = getLocalPapers();
+    if (!local.length) {
+      var msg = document.getElementById('auto-record-msg');
+      if (msg) { msg.textContent = 'No local papers to deduplicate.'; msg.style.display = 'block'; }
+      return;
+    }
+    var byCanon = {};
+    local.forEach(function (p) {
+      var c = canonicalUrl(p.url);
+      if (!c) c = (p.url || '').replace(/#.*$/, '').replace(/\/+$/, '') || p.url;
+      if (!c) return;
+      var title = (p.title || '').trim();
+      var hasTitle = title && title !== '(No title)' && !isJunkTitle(title);
+      if (!byCanon[c] || (hasTitle && (!byCanon[c].title || byCanon[c].title === '(No title)' || isJunkTitle(byCanon[c].title)))) {
+        byCanon[c] = { title: title || '(No title)', url: c, date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '' };
+      }
+    });
+    var out = Object.keys(byCanon).map(function (k) { return byCanon[k]; });
+    out = out.filter(function (p) { return !isJunkTitle(p.title); });
+    setLocalPapers(out);
+    renderLocalPapers();
+    updateKeywordPills();
+    applyFilter();
+    var msg = document.getElementById('auto-record-msg');
+    if (msg) {
+      var removed = local.length - out.length;
+      msg.textContent = removed > 0 ? 'Removed ' + removed + ' duplicate/junk title(s). ' + out.length + ' paper(s) in list.' : 'No duplicates. ' + out.length + ' paper(s).';
+      msg.style.display = 'block';
+    }
+  }
+
   function renderLocalPapers() {
     var list = document.getElementById('papers-from-storage-list');
     var wrapper = document.getElementById('papers-from-storage-wrapper');
@@ -416,13 +476,6 @@
       }
     }
 
-    // Canonical URL for dedup: arxiv PDF/chrome-extension -> https://arxiv.org/abs/ID
-    function canonicalUrl(u) {
-      if (!u) return '';
-      var m = u.match(/arxiv\.org\/(?:pdf|abs)\/(\d+\.\d+)(?:v\d+)?(?:\/|$)/i);
-      if (m) return 'https://arxiv.org/abs/' + m[1];
-      return u.replace(/#.*$/, '').replace(/\/+$/, '') || u;
-    }
     function isPdfFilename(title) {
       return /^\d+\.\d+v?\d*\.pdf$/i.test((title || '').trim());
     }
@@ -564,24 +617,43 @@
     function mergeFromExtension(autoPapers) {
       if (!autoPapers || !autoPapers.length) return;
       var local = getLocalPapers();
-      var seen = {};
-      local.forEach(function (p) { seen[normalizeUrl(p.url)] = true; });
+      var byUrl = {};
+      local.forEach(function (p) { byUrl[normalizeUrl(p.url)] = p; });
       var mergedCount = 0;
+      var updatedCount = 0;
+      function isWeakTitle(t) {
+        if (!t || t.length < 2) return true;
+        if (t === '(No title)') return true;
+        if (/^(arXiv|IEEE|ACM)\s+[\d.]+\s*$/.test(t.trim())) return true;
+        return false;
+      }
       autoPapers.forEach(function (p) {
         var n = normalizeUrl(p.url);
-        if (p.url && !seen[n]) {
-          seen[n] = true;
-          local.unshift({ title: p.title || '(No title)', url: p.url.replace(/#.*$/, '').replace(/\/+$/, ''), date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '' });
+        if (!p.url) return;
+        var incomingTitle = (p.title || '').trim() || '(No title)';
+        var existing = byUrl[n];
+        if (!existing) {
+          byUrl[n] = { title: incomingTitle, url: p.url.replace(/#.*$/, '').replace(/\/+$/, ''), date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '' };
+          local.unshift(byUrl[n]);
           mergedCount++;
+        } else if (isWeakTitle(existing.title) && !isWeakTitle(incomingTitle)) {
+          existing.title = incomingTitle;
+          updatedCount++;
         }
       });
-      if (mergedCount > 0) {
+      if (mergedCount > 0 || updatedCount > 0) {
         setLocalPapers(local);
         renderLocalPapers();
         updateKeywordPills();
         applyFilter();
         var msg = document.getElementById('auto-record-msg');
-        if (msg) { msg.textContent = 'Extension: ' + mergedCount + ' paper(s) merged into list.'; msg.style.display = 'block'; }
+        if (msg) {
+          var parts = [];
+          if (mergedCount > 0) parts.push(mergedCount + ' new merged');
+          if (updatedCount > 0) parts.push(updatedCount + ' title(s) updated');
+          msg.textContent = 'Extension: ' + parts.join(', ') + '.';
+          msg.style.display = 'block';
+        }
       }
     }
 
@@ -605,31 +677,14 @@
       btnSyncExt.title = 'Click the Reading List extension icon in the toolbar, then "Open Reading List (merge saved papers)"';
     }
 
-    document.body.addEventListener('click', function (e) {
-      var btn = e.target && (e.target.id === 'btn-dedup-local' ? e.target : (e.target.closest && e.target.closest('#btn-dedup-local')));
-      if (!btn) return;
-      var local = getLocalPapers();
-      var byNorm = {};
-      local.forEach(function (p) {
-        var n = normalizeUrl(p.url);
-        if (!n) return;
-        var title = (p.title || '').trim();
-        var hasTitle = title && title !== '(No title)';
-        if (!byNorm[n] || (hasTitle && (!byNorm[n].title || byNorm[n].title === '(No title)'))) {
-          byNorm[n] = { title: title || '(No title)', url: p.url, date: p.date || '', keywords: p.keywords || [], notes: p.notes || '' };
-        }
+    var btnDedup = document.getElementById('btn-dedup-local');
+    if (btnDedup) {
+      btnDedup.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        runDedup();
       });
-      var out = Object.keys(byNorm).map(function (k) { return byNorm[k]; });
-      setLocalPapers(out);
-      renderLocalPapers();
-      updateKeywordPills();
-      applyFilter();
-      var msg = document.getElementById('auto-record-msg');
-      if (msg) {
-        msg.textContent = local.length === out.length ? 'No duplicates. ' + out.length + ' paper(s).' : 'Duplicates removed. ' + out.length + ' paper(s) in list.';
-        msg.style.display = 'block';
-      }
-    });
+    }
 
     var bookmarkletEl = document.getElementById('bookmarklet-add-current');
     if (bookmarkletEl) {
@@ -639,9 +694,36 @@
     }
   }
 
+  function bindDedupButton() {
+    var btn = document.getElementById('btn-dedup-local');
+    if (btn && !btn._dedupBound) {
+      btn._dedupBound = true;
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        runDedup();
+      });
+    }
+  }
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest('#btn-dedup-local') : null;
+    if (btn) {
+      e.preventDefault();
+      e.stopPropagation();
+      runDedup();
+    }
+  }, true);
+
+  window.runReadingListDedup = runDedup;
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', function () {
+      init();
+      bindDedupButton();
+    });
   } else {
     init();
+    bindDedupButton();
   }
 })();
