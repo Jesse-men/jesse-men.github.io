@@ -44,6 +44,27 @@ body_attr: ""
         <i class="fas fa-compress-arrows-alt mr-1"></i> Deduplicate
       </button>
       <div id="auto-record-msg" class="small text-success mt-2" style="display: none;"></div>
+      <div id="export-yaml-inline" class="mt-4 p-3 border rounded bg-light" style="display: none;">
+        <h6 class="font-weight-bold">Exported YAML (copy from below)</h6>
+        <textarea id="export-yaml-inline-text" class="form-control font-monospace small" rows="14" readonly></textarea>
+        <button type="button" class="btn btn-primary btn-sm mt-2" id="btn-copy-inline-yaml"><i class="fas fa-copy mr-1"></i> Copy</button>
+      </div>
+    </div>
+
+    <div class="modal fade" id="export-yaml-modal" tabindex="-1">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Exported YAML</h5>
+            <button type="button" class="close" data-dismiss="modal">&times;</button>
+          </div>
+          <div class="modal-body">
+            <p class="small text-muted">Paste the content below under <code>papers:</code> in <code>_data/reading_papers.yml</code></p>
+            <textarea id="export-yaml-text" class="form-control font-monospace small" rows="14" readonly></textarea>
+            <button type="button" class="btn btn-primary btn-sm mt-2" id="btn-copy-export-yaml"><i class="fas fa-copy mr-1"></i> Copy</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="collapse mb-4" id="add-paper-form">
@@ -160,4 +181,4 @@ body_attr: ""
   </div>
 </div>
 
-<script src="{{ '/assets/js/reading_papers.js' | relative_url }}"></script>
+<script src="{{ '/assets/js/reading_papers.js' | relative_url }}?v=4"></script>

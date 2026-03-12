@@ -330,6 +330,17 @@
       }
     }
 
+    // Canonical URL for dedup: arxiv PDF/chrome-extension -> https://arxiv.org/abs/ID
+    function canonicalUrl(u) {
+      if (!u) return '';
+      var m = u.match(/arxiv\.org\/(?:pdf|abs)\/(\d+\.\d+)(?:v\d+)?(?:\/|$)/i);
+      if (m) return 'https://arxiv.org/abs/' + m[1];
+      return u.replace(/#.*$/, '').replace(/\/+$/, '') || u;
+    }
+    function isPdfFilename(title) {
+      return /^\d+\.\d+v?\d*\.pdf$/i.test((title || '').trim());
+    }
+
     // Export YAML — show in a dynamically created overlay (works even if page HTML is old/cached)
     var btnExport = document.getElementById('btn-export-yaml');
     function doExportYaml() {
@@ -338,7 +349,41 @@
         alert('No locally saved papers to export.');
         return;
       }
-      var yaml = papers.map(function (p) {
+      var byCanon = {};
+      papers.forEach(function (p) {
+        var canon = canonicalUrl(p.url);
+        if (!canon || canon.indexOf('chrome-extension:') === 0) return;
+        var url = p.url || '';
+        var isRealUrl = url.indexOf('http://') === 0 || url.indexOf('https://') === 0;
+        var title = (p.title || '').trim();
+        var goodTitle = title && !isPdfFilename(title) && title !== '(No title)';
+        var cur = byCanon[canon];
+        if (!cur) {
+          byCanon[canon] = { title: title || '(No title)', url: canon, date: p.date || '', keywords: p.keywords || [], notes: p.notes || '' };
+          return;
+        }
+        var curGood = cur.title && !isPdfFilename(cur.title) && cur.title !== '(No title)';
+        if (goodTitle && !curGood) {
+          cur.title = title;
+          cur.keywords = p.keywords || [];
+          cur.notes = p.notes || '';
+          cur.date = p.date || cur.date;
+        } else if (goodTitle && curGood && title.length > (cur.title || '').length) {
+          cur.title = title;
+          cur.keywords = p.keywords || cur.keywords;
+          cur.notes = p.notes || cur.notes;
+          cur.date = p.date || cur.date;
+        }
+      });
+      var list = Object.keys(byCanon).map(function (k) {
+        var p = byCanon[k];
+        if (isPdfFilename(p.title)) {
+          var idMatch = p.url.match(/arxiv\.org\/abs\/(\d+\.\d+)/);
+          p = { title: idMatch ? 'arXiv ' + idMatch[1] : p.title, url: p.url, date: p.date, keywords: p.keywords, notes: p.notes };
+        }
+        return p;
+      });
+      var yaml = list.map(function (p) {
         var lines = [
           '  - title: "' + (p.title || '').replace(/"/g, '\\"') + '"',
           '    url: ' + (p.url || ''),
@@ -363,23 +408,41 @@
 
       var overlay = document.createElement('div');
       overlay.id = 'reading-list-export-overlay';
-      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:20px;';
       var box = document.createElement('div');
-      box.style.cssText = 'background:#fff;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.2);max-width:90%;max-height:85vh;width:640px;display:flex;flex-direction:column;overflow:hidden;';
+      box.style.cssText = 'background:#fff;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.3);max-width:90%;max-height:85vh;width:680px;display:flex;flex-direction:column;overflow:hidden;border:2px solid #333;';
       box.innerHTML =
-        '<div style="padding:16px 20px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">' +
-        '<strong>Exported YAML</strong>' +
-        '<button type="button" id="reading-list-export-close" style="background:none;border:none;font-size:24px;line-height:1;cursor:pointer;color:#666;">&times;</button>' +
+        '<div style="padding:16px 20px;border-bottom:2px solid #333;display:flex;justify-content:space-between;align-items:center;background:#f8f9fa;">' +
+        '<strong style="font-size:1.1rem;">Exported YAML — copy from the box below</strong>' +
+        '<button type="button" id="reading-list-export-close" style="background:#333;color:#fff;border:none;font-size:20px;line-height:1;cursor:pointer;width:36px;height:36px;border-radius:4px;">&times;</button>' +
         '</div>' +
         '<div style="padding:16px 20px;overflow:auto;flex:1;">' +
-        '<p class="small text-muted" style="margin-bottom:8px;">Paste below under <code>papers:</code> in <code>_data/reading_papers.yml</code></p>' +
-        '<textarea id="reading-list-export-text" readonly style="width:100%;height:280px;font-family:monospace;font-size:13px;padding:10px;border:1px solid #ccc;border-radius:4px;resize:vertical;"></textarea>' +
-        '<button type="button" id="reading-list-export-copy" class="btn btn-primary btn-sm mt-2"><i class="fas fa-copy mr-1"></i> Copy</button>' +
+        '<p style="margin-bottom:8px;font-weight:bold;">Paste the content below under <code>papers:</code> in <code>_data/reading_papers.yml</code></p>' +
+        '<textarea id="reading-list-export-text" readonly style="width:100%;height:320px;font-family:monospace;font-size:13px;padding:12px;border:2px solid #333;border-radius:4px;resize:vertical;background:#fff;"></textarea>' +
+        '<button type="button" id="reading-list-export-copy" class="btn btn-primary mt-2"><i class="fas fa-copy mr-1"></i> Copy</button>' +
         '</div>';
       var textarea = box.querySelector('#reading-list-export-text');
       textarea.value = full;
       overlay.appendChild(box);
       document.body.appendChild(overlay);
+      textarea.focus();
+
+      var inlineBox = document.getElementById('export-yaml-inline');
+      var inlineText = document.getElementById('export-yaml-inline-text');
+      var btnCopyInline = document.getElementById('btn-copy-inline-yaml');
+      if (inlineBox && inlineText) {
+        inlineText.value = full;
+        inlineBox.style.display = 'block';
+        inlineBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      if (btnCopyInline && inlineText) {
+        btnCopyInline.onclick = function () {
+          inlineText.select();
+          try { document.execCommand('copy'); alert('Copied.'); } catch (e) {}
+        };
+      }
 
       function closeOverlay() {
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
