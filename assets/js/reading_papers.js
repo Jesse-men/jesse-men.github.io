@@ -19,16 +19,16 @@
 
   function renderLocalPapers() {
     var list = document.getElementById('papers-from-storage-list');
-    var container = document.getElementById('papers-from-storage');
-    if (!list || !container) return;
+    var wrapper = document.getElementById('papers-from-storage-wrapper');
+    if (!list || !wrapper) return;
 
     var papers = getLocalPapers();
     if (papers.length === 0) {
-      container.style.display = 'none';
+      wrapper.style.display = 'none';
       return;
     }
 
-    container.style.display = 'block';
+    wrapper.style.display = 'block';
     list.innerHTML = papers.map(function (p, i) {
       var keywords = (p.keywords || []).map(function (k) {
         return '<span class="badge badge-light border mr-1">' + escapeHtml(k) + '</span>';
@@ -40,6 +40,7 @@
         '<div class="d-flex justify-content-between align-items-start flex-wrap">' +
         '<div class="flex-grow-1">' +
         '<h5 class="mt-0 mb-1 font-weight-normal">' +
+        '<span class="badge badge-secondary mr-1" title="Stored on this device only">Local</span>' +
         '<a href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener">' + escapeHtml(p.title) + '</a>' +
         '</h5>' +
         '<p class="mb-1 small text-muted">' +

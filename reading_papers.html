@@ -96,38 +96,36 @@ body_attr: ""
       </div>
     </div>
 
-    <!-- Paper list from _data/reading_papers.yml -->
-    <div class="my-0 p-0 bg-white shadow-sm rounded-xl" id="papers-from-data">
-      {% assign papers = site.data.reading_papers.papers %}
-      {% for p in papers %}
-      <div class="reading-paper-item border-bottom border-gray p-3" data-keywords="{{ p.keywords | join: ',' }}">
-        <div class="d-flex justify-content-between align-items-start flex-wrap">
-          <div class="flex-grow-1">
-            <h5 class="mt-0 mb-1 font-weight-normal">
-              <a href="{{ p.url }}" target="_blank" rel="noopener">{{ p.title }}</a>
-            </h5>
-            <p class="mb-1 small text-muted">
-              <span class="mr-2"><i class="far fa-calendar-alt mr-1"></i>{{ p.date }}</span>
-              {% if p.notes != "" %}<span><i class="far fa-sticky-note mr-1"></i>{{ p.notes }}</span>{% endif %}
-            </p>
-            <div class="keyword-tags">
-              {% for kw in p.keywords %}
-              <span class="badge badge-light border mr-1">{{ kw }}</span>
-              {% endfor %}
+    <!-- Reading list: YAML + local storage in one card -->
+    <div class="my-0 p-0 bg-white shadow-sm rounded-xl" id="reading-list-container">
+      <div id="papers-from-data">
+        {% assign papers = site.data.reading_papers.papers %}
+        {% for p in papers %}
+        <div class="reading-paper-item border-bottom border-gray p-3" data-keywords="{{ p.keywords | join: ',' }}">
+          <div class="d-flex justify-content-between align-items-start flex-wrap">
+            <div class="flex-grow-1">
+              <h5 class="mt-0 mb-1 font-weight-normal">
+                <a href="{{ p.url }}" target="_blank" rel="noopener">{{ p.title }}</a>
+              </h5>
+              <p class="mb-1 small text-muted">
+                <span class="mr-2"><i class="far fa-calendar-alt mr-1"></i>{{ p.date }}</span>
+                {% if p.notes != "" %}<span><i class="far fa-sticky-note mr-1"></i>{{ p.notes }}</span>{% endif %}
+              </p>
+              <div class="keyword-tags">
+                {% for kw in p.keywords %}
+                <span class="badge badge-light border mr-1">{{ kw }}</span>
+                {% endfor %}
+              </div>
             </div>
+            <a href="{{ p.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary ml-2">Open</a>
           </div>
-          <a href="{{ p.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary ml-2">Open</a>
         </div>
+        {% endfor %}
       </div>
-      {% endfor %}
-    </div>
-
-    <!-- Locally saved papers (rendered by JS) -->
-    <div class="my-0 p-0 bg-white shadow-sm rounded-xl mt-3" id="papers-from-storage" style="display: none;">
-      <div class="border-bottom border-gray p-3 bg-light">
-        <strong>Local storage</strong> <span class="small text-muted">(visible only on this device; export as YAML to merge into the list above)</span>
+      <div id="papers-from-storage-wrapper" style="display: none;">
+        <div class="border-top border-gray p-2 pl-3 bg-light small">Saved on this device — use Export YAML to merge into repo.</div>
+        <div id="papers-from-storage-list"></div>
       </div>
-      <div id="papers-from-storage-list"></div>
     </div>
 
     <!-- Generate Related Work with LLM -->
@@ -169,7 +167,7 @@ body_attr: ""
       <p class="mb-2">This page does <em>not</em> track or detect what you read. Papers appear only if you add them in one of these ways:</p>
       <ul class="mb-2 pl-3">
         <li><strong>YAML file:</strong> Entries in the list come from <code>_data/reading_papers.yml</code>. Edit that file in the repo to add or remove papers (they show for everyone who visits the site).</li>
-        <li><strong>Add paper form:</strong> Click &quot;Add paper&quot; above, fill in title, URL, and keywords, then &quot;Save locally&quot;. Those are stored only in your browser (localStorage) and appear under &quot;Local storage&quot;. Use &quot;Export YAML&quot; if you want to merge them into the repo later.</li>
+        <li><strong>Add paper form:</strong> Click &quot;Add paper&quot; above, fill in title, URL, and keywords, then &quot;Save locally&quot;. Those are stored only in your browser and appear in the Reading List above with a <strong>Local</strong> badge. Use &quot;Export YAML&quot; to merge them into the repo.</li>
         <li><strong>From a paper page:</strong> When you are on a paper (e.g. arXiv, IEEE), drag the link below to your bookmarks bar. Later, click that bookmark to open this page with the current URL and title pre-filled, then click &quot;Save locally&quot;.</li>
       </ul>
       <p class="mb-1"><strong>Automatic recording (Chrome extension)</strong></p>
@@ -181,4 +179,4 @@ body_attr: ""
   </div>
 </div>
 
-<script src="{{ '/assets/js/reading_papers.js' | relative_url }}?v=4"></script>
+<script src="{{ '/assets/js/reading_papers.js' | relative_url }}?v=5"></script>
