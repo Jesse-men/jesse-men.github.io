@@ -60,7 +60,17 @@
       var title = (p.title || '').trim();
       var hasTitle = title && title !== '(No title)' && !isJunkTitle(title);
       if (!byCanon[c] || (hasTitle && (!byCanon[c].title || byCanon[c].title === '(No title)' || isJunkTitle(byCanon[c].title)))) {
-        byCanon[c] = { title: title || '(No title)', url: c, date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '' };
+        byCanon[c] = {
+          title: title || '(No title)',
+          url: c,
+          date: p.date || '',
+          keywords: p.keywords || [],
+          notes: p.notes || '',
+          abstract: p.abstract || '',
+          authors: p.authors || '',
+          venue: p.venue || '',
+          year: p.year || ''
+        };
       }
     });
     var out = Object.keys(byCanon).map(function (k) { return byCanon[k]; });
@@ -95,6 +105,11 @@
         return '<span class="badge badge-light border mr-1">' + escapeHtml(k) + '</span>';
       }).join('');
       var abstractAttr = (p.abstract || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, ' ');
+      var citationBits = [];
+      if (p.authors) citationBits.push('<span class="mr-2"><i class="far fa-user mr-1"></i>' + escapeHtml(p.authors) + '</span>');
+      if (p.venue) citationBits.push('<span class="mr-2"><i class="far fa-bookmark mr-1"></i>' + escapeHtml(p.venue) + '</span>');
+      if (p.year) citationBits.push('<span><i class="far fa-clock mr-1"></i>' + escapeHtml(String(p.year)) + '</span>');
+      var citationLine = citationBits.length ? ('<p class="mb-1 small text-muted">' + citationBits.join('') + '</p>') : '';
       return (
         '<div class="reading-paper-item border-bottom border-gray p-3" data-keywords="' +
         escapeHtml(kwStr(p)) +
@@ -105,6 +120,7 @@
         '<span class="badge badge-secondary mr-1" title="Stored on this device only">Local</span>' +
         '<a href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener">' + escapeHtml(p.title) + '</a>' +
         '</h5>' +
+        citationLine +
         '<p class="mb-1 small text-muted">' +
         '<span class="mr-2"><i class="far fa-calendar-alt mr-1"></i>' + escapeHtml(p.date || '') + '</span>' +
         (p.notes ? '<span><i class="far fa-sticky-note mr-1"></i>' + escapeHtml(p.notes) + '</span>' : '') +
@@ -424,18 +440,22 @@
       document.body.removeChild(ta);
     }
 
+    var selectProvider = document.getElementById('select-llm-provider');
     if (btnOpenAI && inputKey && promptTa && outputWrap && outputTa) {
       btnOpenAI.addEventListener('click', function () {
         var key = (inputKey.value || '').trim();
         var promptText = (promptTa.value || '').trim();
         if (!key) {
-          alert('Please enter your OpenAI API key in the field above.\n\nYou can create one at: platform.openai.com/api-keys');
+          alert('Please enter your API key.\n\nOpenAI: platform.openai.com/api-keys\nDeepSeek: platform.deepseek.com');
           return;
         }
         if (!promptText) {
           alert('Fill the prompt first (use "Use current filter → fill prompt").');
           return;
         }
+        var provider = (selectProvider && selectProvider.value) ? selectProvider.value : 'openai';
+        var apiUrl = provider === 'deepseek' ? 'https://api.deepseek.com/v1/chat/completions' : 'https://api.openai.com/v1/chat/completions';
+        var model = provider === 'deepseek' ? 'deepseek-chat' : 'gpt-4o-mini';
         outputTa.value = 'Generating...';
         outputWrap.style.display = 'block';
         var req = {
@@ -445,14 +465,14 @@
             'Authorization': 'Bearer ' + key
           },
           body: JSON.stringify({
-            model: 'gpt-4o-mini',
+            model: model,
             messages: [
               { role: 'user', content: promptText }
             ],
             temperature: 0.5
           })
         };
-        fetch('https://api.openai.com/v1/chat/completions', req)
+        fetch(apiUrl, req)
           .then(function (res) {
             if (!res.ok) return res.json().then(function (j) { throw new Error(j.error && j.error.message ? j.error.message : res.statusText); });
             return res.json();
@@ -462,7 +482,11 @@
             outputTa.value = content || '(No content returned.)';
           })
           .catch(function (err) {
-            outputTa.value = 'Error: ' + (err.message || String(err));
+            var msg = err.message || String(err);
+            if (msg.indexOf('Failed to fetch') !== -1 || msg.indexOf('NetworkError') !== -1 || (err.name && err.name === 'TypeError')) {
+              msg = 'Failed to fetch (often CORS). The API may block requests from this site.\n\nTry: 1) Use "Copy prompt for ChatGPT" above and paste into chat.openai.com or platform.deepseek.com. 2) Run the site locally (e.g. bundle exec jekyll serve) and call Generate from http://localhost:4000.';
+            }
+            outputTa.value = 'Error: ' + msg;
           });
       });
     }
@@ -516,6 +540,9 @@
         var kwStr = (document.getElementById('input-keywords').value || '').trim();
         var notes = (document.getElementById('input-notes').value || '').trim();
         var abstract = (document.getElementById('input-abstract') && document.getElementById('input-abstract').value) ? document.getElementById('input-abstract').value.trim() : '';
+        var authors = (document.getElementById('input-authors') && document.getElementById('input-authors').value) ? document.getElementById('input-authors').value.trim() : '';
+        var venue = (document.getElementById('input-venue') && document.getElementById('input-venue').value) ? document.getElementById('input-venue').value.trim() : '';
+        var year = (document.getElementById('input-year') && document.getElementById('input-year').value) ? document.getElementById('input-year').value.trim() : '';
         var keywords = kwStr ? kwStr.split(/[,，]/).map(function (k) { return k.trim(); }).filter(Boolean) : [];
 
         var papers = getLocalPapers();
@@ -525,7 +552,10 @@
           date: todayStr(),
           keywords: keywords,
           notes: notes,
-          abstract: abstract
+          abstract: abstract,
+          authors: authors,
+          venue: venue,
+          year: year
         });
         setLocalPapers(papers);
 
@@ -534,6 +564,9 @@
         document.getElementById('input-keywords').value = '';
         document.getElementById('input-notes').value = '';
         if (document.getElementById('input-abstract')) document.getElementById('input-abstract').value = '';
+        if (document.getElementById('input-authors')) document.getElementById('input-authors').value = '';
+        if (document.getElementById('input-venue')) document.getElementById('input-venue').value = '';
+        if (document.getElementById('input-year')) document.getElementById('input-year').value = '';
 
         renderLocalPapers();
         updateKeywordPills();
@@ -580,7 +613,17 @@
         var goodTitle = title && !isPdfFilename(title) && title !== '(No title)';
         var cur = byCanon[canon];
         if (!cur) {
-          byCanon[canon] = { title: title || '(No title)', url: canon, date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '' };
+          byCanon[canon] = {
+            title: title || '(No title)',
+            url: canon,
+            date: p.date || '',
+            keywords: p.keywords || [],
+            notes: p.notes || '',
+            abstract: p.abstract || '',
+            authors: p.authors || '',
+            venue: p.venue || '',
+            year: p.year || ''
+          };
           return;
         }
         var curGood = cur.title && !isPdfFilename(cur.title) && cur.title !== '(No title)';
@@ -589,12 +632,18 @@
           cur.keywords = p.keywords || [];
           cur.notes = p.notes || '';
           cur.abstract = p.abstract || cur.abstract;
+          cur.authors = p.authors || cur.authors;
+          cur.venue = p.venue || cur.venue;
+          cur.year = p.year || cur.year;
           cur.date = p.date || cur.date;
         } else if (goodTitle && curGood && title.length > (cur.title || '').length) {
           cur.title = title;
           cur.keywords = p.keywords || cur.keywords;
           cur.notes = p.notes || cur.notes;
           cur.abstract = p.abstract || cur.abstract;
+          cur.authors = p.authors || cur.authors;
+          cur.venue = p.venue || cur.venue;
+          cur.year = p.year || cur.year;
           cur.date = p.date || cur.date;
         }
       });
@@ -602,7 +651,17 @@
         var p = byCanon[k];
         if (isPdfFilename(p.title)) {
           var idMatch = p.url.match(/arxiv\.org\/abs\/(\d+\.\d+)/);
-          p = { title: idMatch ? 'arXiv ' + idMatch[1] : p.title, url: p.url, date: p.date, keywords: p.keywords, notes: p.notes, abstract: p.abstract || '' };
+          p = {
+            title: idMatch ? 'arXiv ' + idMatch[1] : p.title,
+            url: p.url,
+            date: p.date,
+            keywords: p.keywords,
+            notes: p.notes,
+            abstract: p.abstract || '',
+            authors: p.authors || '',
+            venue: p.venue || '',
+            year: p.year || ''
+          };
         }
         return p;
       });
@@ -619,6 +678,9 @@
         lines.push('    notes: "' + (p.notes || '').replace(/"/g, '\\"') + '"');
         var abs = (p.abstract || '').replace(/"/g, '\\"').replace(/\n/g, ' ');
         if (abs) lines.push('    abstract: "' + abs + '"');
+        if (p.authors) lines.push('    authors: "' + String(p.authors).replace(/"/g, '\\"') + '"');
+        if (p.venue) lines.push('    venue: "' + String(p.venue).replace(/"/g, '\\"') + '"');
+        if (p.year) lines.push('    year: "' + String(p.year).replace(/"/g, '\\"') + '"');
         return lines.join('\n');
       }).join('\n\n');
       var full = '# Paste under papers: in _data/reading_papers.yml\n\n' + yaml;
@@ -715,13 +777,27 @@
         var incomingTitle = (p.title || '').trim() || '(No title)';
         var existing = byUrl[n];
         if (!existing) {
-          byUrl[n] = { title: incomingTitle, url: p.url.replace(/#.*$/, '').replace(/\/+$/, ''), date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '' };
+          byUrl[n] = {
+            title: incomingTitle,
+            url: p.url.replace(/#.*$/, '').replace(/\/+$/, ''),
+            date: p.date || '',
+            keywords: p.keywords || [],
+            notes: p.notes || '',
+            abstract: p.abstract || '',
+            authors: p.authors || '',
+            venue: p.venue || '',
+            year: p.year || ''
+          };
           local.unshift(byUrl[n]);
           mergedCount++;
         } else if (isWeakTitle(existing.title) && !isWeakTitle(incomingTitle)) {
           existing.title = incomingTitle;
           updatedCount++;
         }
+        if (!existing) return;
+        if (!existing.authors && p.authors) existing.authors = p.authors;
+        if (!existing.venue && p.venue) existing.venue = p.venue;
+        if (!existing.year && p.year) existing.year = p.year;
       });
       if (mergedCount > 0 || updatedCount > 0) {
         setLocalPapers(local);
