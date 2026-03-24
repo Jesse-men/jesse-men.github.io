@@ -325,6 +325,16 @@ document.getElementById('refetch-authors').addEventListener('click', function ()
           return c;
         })
         .then(function (c) {
+          var CR = typeof ReadingListCrossref !== 'undefined' ? ReadingListCrossref : null;
+          if (!CR) return c;
+          var doi = CR.deriveDoiFromPaper(c, canon);
+          if (!doi) return c;
+          return CR.fetchCrossrefWork(doi).then(function (msg) {
+            if (!msg) return c;
+            return CR.mergeHtmlCitationWithCrossref(c, msg, canon);
+          });
+        })
+        .then(function (c) {
           var newAuthors = c && c.authors && c.authors.length ? c.authors.length : 0;
           if (newAuthors > 0) withAuthors++;
           // For arXiv entries, if we have authors, force overwrite old weak citation.

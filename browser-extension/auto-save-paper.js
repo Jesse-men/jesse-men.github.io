@@ -397,10 +397,26 @@
       });
     }
 
-    // Dual path: parse citation from current DOM and canonical page HTML, then merge.
+    // Dual path: DOM + canonical HTML merge, then Crossref by DOI when available.
     fetchCitationFromCanonical(canon, function (fetchedCitation) {
       var merged = mergeCitation(citationBase, fetchedCitation);
-      proceedWithCitation(merged);
+      var CR = typeof ReadingListCrossref !== 'undefined' ? ReadingListCrossref : null;
+      if (!CR) {
+        proceedWithCitation(merged);
+        return;
+      }
+      var doi = CR.deriveDoiFromPaper(merged, canon);
+      if (!doi) {
+        proceedWithCitation(merged);
+        return;
+      }
+      CR.fetchCrossrefWork(doi).then(function (msg) {
+        if (!msg) {
+          proceedWithCitation(merged);
+          return;
+        }
+        proceedWithCitation(CR.mergeHtmlCitationWithCrossref(merged, msg, canon));
+      });
     });
   }
 
