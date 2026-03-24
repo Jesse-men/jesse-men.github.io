@@ -36,6 +36,8 @@ function isJunkTitle(title) {
   if (/^IEEE\s*Xplore\s*Full-Text\s*PDF/i.test(t)) return true;
   if (/^Sign\s*in$/i.test(t)) return true;
   if (/^Login$/i.test(t)) return true;
+  if (/^\d{4}\.\d{4,5}(v\d+)?\.pdf$/i.test(t)) return true;
+  if (/^[^ ]+\.pdf$/i.test(t)) return true;
   return false;
 }
 

@@ -26,6 +26,8 @@
     if (/^Sign\s*in$/i.test(t)) return true;
     if (/^Login$/i.test(t)) return true;
     if (/^arXiv\s*$/i.test(t)) return true;
+    if (/^\d{4}\.\d{4,5}(v\d+)?\.pdf$/i.test(t)) return true;
+    if (/^[^ ]+\.pdf$/i.test(t)) return true;
     if (t.length < 10 && /^(ACM|Springer|ScienceDirect)\s*$/i.test(t)) return true;
     return false;
   }
@@ -76,23 +78,26 @@
   }
 
   function getTitleFromPage() {
+    function cleanTitle(s) {
+      var t = stripSiteSuffix((s || '').trim());
+      return isJunkTitle(t) ? '' : t;
+    }
+
     var cit = document.querySelector('meta[name="citation_title"]');
     if (cit && cit.getAttribute('content')) {
-      var t = (cit.getAttribute('content') || '').trim();
+      var t = cleanTitle(cit.getAttribute('content') || '');
       if (t.length >= 2) return t;
     }
     var og = document.querySelector('meta[property="og:title"]');
     if (og && og.getAttribute('content')) {
-      t = (og.getAttribute('content') || '').trim();
-      if (t.length >= 2) return stripSiteSuffix(t);
+      t = cleanTitle(og.getAttribute('content') || '');
+      if (t.length >= 2) return t;
     }
     var dc = document.querySelector('meta[name="dc.Title"], meta[name="DC.Title"], meta[name="dc.title"], meta[name="twitter:title"]');
     if (dc && dc.getAttribute('content')) {
-      t = (dc.getAttribute('content') || '').trim();
-      if (t.length >= 2) return stripSiteSuffix(t);
+      t = cleanTitle(dc.getAttribute('content') || '');
+      if (t.length >= 2) return t;
     }
-    var docTitle = (document.title || '').trim();
-    if (docTitle.length >= 2) return stripSiteSuffix(docTitle);
     var host = location.hostname || '';
     if (/ieeexplore\.ieee\.org/i.test(host)) {
       var sel = document.querySelector('meta[name="citation_title"]');
@@ -102,7 +107,7 @@
       }
       var h1 = document.querySelector('h1.text-2xl, h1.document-title, .document-title, [class*="document-title"], h1');
       if (h1 && h1.textContent) {
-        var t = h1.textContent.trim();
+        var t = cleanTitle(h1.textContent || '');
         if (t.length >= 2 && t.length < 500) return t;
       }
     }
@@ -114,12 +119,12 @@
       }
       cit = document.querySelector('h1.title, .title');
       if (cit && cit.textContent) {
-        var t = cit.textContent.replace(/^\s*Title:\s*/i, '').trim();
+        var t = cleanTitle((cit.textContent || '').replace(/^\s*Title:\s*/i, ''));
         if (t.length >= 2) return t;
       }
       var h1 = document.querySelector('h1');
       if (h1 && h1.textContent) {
-        t = h1.textContent.trim();
+        t = cleanTitle(h1.textContent || '');
         if (t.length >= 2 && t.length < 500) return t;
       }
     }
@@ -131,25 +136,27 @@
       }
       var h1 = document.querySelector('h1[class*="citation__title"], .citation__title, h1');
       if (h1 && h1.textContent) {
-        var t = h1.textContent.trim();
+        var t = cleanTitle(h1.textContent || '');
         if (t.length >= 2 && t.length < 500) return t;
       }
     }
     if (/sciencedirect\.com/i.test(host)) {
       var sdCit = document.querySelector('meta[name="citation_title"], meta[name="dc.title"], meta[property="og:title"]');
       if (sdCit && sdCit.getAttribute('content')) {
-        var sdT = stripSiteSuffix((sdCit.getAttribute('content') || '').trim());
+        var sdT = cleanTitle(sdCit.getAttribute('content') || '');
         if (sdT.length >= 2) return sdT;
       }
       var sdH1 = document.querySelector('span.title-text, h1');
       if (sdH1 && sdH1.textContent) {
-        var sdH1T = sdH1.textContent.trim();
+        var sdH1T = cleanTitle(sdH1.textContent || '');
         if (sdH1T.length >= 2 && sdH1T.length < 500) return sdH1T;
       }
     }
+    var docTitle = cleanTitle(document.title || '');
+    if (docTitle.length >= 2) return docTitle;
     var anyH1 = document.querySelector('h1');
     if (anyH1 && anyH1.textContent) {
-      var t = anyH1.textContent.trim();
+      var t = cleanTitle(anyH1.textContent || '');
       if (t.length >= 2 && t.length < 500) return t;
     }
     return '';
