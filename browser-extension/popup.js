@@ -13,12 +13,16 @@ function canonicalPaperUrl(url) {
   var u = (url || '').replace(/#.*$/, '').replace(/\/+$/, '');
   var m = u.match(/ieeexplore\.ieee\.org\/document\/(\d+)/i);
   if (m) return 'https://ieeexplore.ieee.org/document/' + m[1];
+  m = u.match(/ieeexplore\.ieee\.org\/stamp\/stamp\.jsp\?.*arnumber=(\d+)/i);
+  if (m) return 'https://ieeexplore.ieee.org/document/' + m[1];
   m = u.match(/arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5})(?:v\d+)?/i);
   if (m) return 'https://arxiv.org/abs/' + m[1];
-  m = u.match(/dl\.acm\.org\/doi\/([^/?]+)/i);
+  m = u.match(/dl\.acm\.org\/doi\/(10\.[^?#]+)/i);
   if (m) return 'https://dl.acm.org/doi/' + m[1];
   m = u.match(/link\.springer\.com\/(article|chapter)\/([^/?]+)/i);
   if (m) return 'https://link.springer.com/' + m[1] + '/' + m[2];
+  m = u.match(/sciencedirect\.com\/science\/article\/pii\/([^/?]+)/i);
+  if (m) return 'https://www.sciencedirect.com/science/article/pii/' + m[1];
   m = u.match(/sciencedirect\.com\/science\/article\/([^/?]+)/i);
   if (m) return 'https://www.sciencedirect.com/science/article/' + m[1];
   return null;
