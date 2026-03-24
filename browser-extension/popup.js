@@ -110,7 +110,14 @@ document.getElementById('import-from-history').addEventListener('click', functio
         if (!title) title = '(No title)';
         if (seen[canon]) return;
         seen[canon] = true;
-        list.push({ title: title, url: canon, date: new Date().toISOString().slice(0, 10), keywords: [], notes: '' });
+        list.push({
+          title: title,
+          url: canon,
+          date: new Date().toISOString().slice(0, 10),
+          keywords: [],
+          notes: '',
+          citationText: title + '. ' + canon
+        });
       });
       checkDone();
     });

@@ -77,6 +77,65 @@
       .trim();
   }
 
+  function getMeta(name) {
+    var el = document.querySelector('meta[name="' + name + '"], meta[property="' + name + '"]');
+    if (!el) return '';
+    return (el.getAttribute('content') || '').trim();
+  }
+
+  function getMetaAll(name) {
+    var out = [];
+    var els = document.querySelectorAll('meta[name="' + name + '"]');
+    if (!els || !els.length) return out;
+    for (var i = 0; i < els.length; i++) {
+      var v = (els[i].getAttribute('content') || '').trim();
+      if (v) out.push(v);
+    }
+    return out;
+  }
+
+  function parseYear(s) {
+    var m = (s || '').match(/\b(19|20)\d{2}\b/);
+    return m ? m[0] : '';
+  }
+
+  function buildCitationData(finalTitle, canonUrl) {
+    var authors = getMetaAll('citation_author');
+    if (authors.length === 0) {
+      var dcCreator = getMeta('dc.creator') || getMeta('DC.Creator');
+      if (dcCreator) authors = dcCreator.split(/;|, and | and /i).map(function (x) { return x.trim(); }).filter(Boolean);
+    }
+    var year = parseYear(getMeta('citation_publication_date') || getMeta('citation_date') || getMeta('dc.date') || getMeta('DC.Date') || '');
+    if (!year) {
+      var m = (canonUrl || '').match(/arxiv\.org\/abs\/(\d{2})(\d{2})\./i);
+      if (m) year = '20' + m[1];
+    }
+    var venue = getMeta('citation_journal_title') || getMeta('citation_conference_title') || getMeta('citation_inbook_title') || getMeta('og:site_name');
+    var doi = getMeta('citation_doi');
+    if (!doi) {
+      var doiM = (canonUrl || '').match(/dl\.acm\.org\/doi\/(10\.[^/?#]+)/i);
+      if (doiM) doi = doiM[1];
+    }
+    var citation = {
+      title: finalTitle || '',
+      authors: authors,
+      year: year || '',
+      venue: venue || '',
+      doi: doi || '',
+      url: canonUrl || ''
+    };
+    var authorText = authors.length ? (authors.length <= 3 ? authors.join(', ') : (authors[0] + ' et al.')) : '';
+    var parts = [];
+    if (authorText) parts.push(authorText);
+    if (citation.year) parts.push('(' + citation.year + ')');
+    if (citation.title) parts.push(citation.title + '.');
+    if (citation.venue) parts.push(citation.venue + '.');
+    if (citation.doi) parts.push('doi:' + citation.doi + '.');
+    if (citation.url) parts.push(citation.url);
+    citation.text = parts.join(' ');
+    return citation;
+  }
+
   function getTitleFromPage() {
     function cleanTitle(s) {
       var t = stripSiteSuffix((s || '').trim());
@@ -175,6 +234,7 @@
     var titleFromPage = getTitleFromPage();
     if (isJunkTitle(titleFromPage)) titleFromPage = '';
     var title = (titleFromPage && titleFromPage.length >= 2) ? titleFromPage : titleFromUrl(cleanUrl);
+    var citation = buildCitationData(title, canon);
 
     chrome.storage.local.get(STORAGE_KEY, function (data) {
       var list = data[STORAGE_KEY] || [];
@@ -187,6 +247,16 @@
         if (titleFromPage && titleFromPage.length >= 2 && (existing.title === '(No title)' || existing.title.indexOf('arXiv ') === 0 || existing.title.indexOf('IEEE ') === 0 || existing.title.indexOf('ACM ') === 0)) {
           existing.title = titleFromPage;
           existing.url = canon;
+          if (citation && citation.text) {
+            existing.citation = citation;
+            existing.citationText = citation.text;
+          }
+          chrome.storage.local.set({ reading_papers_auto: list });
+          return;
+        }
+        if ((!existing.citationText || existing.citationText.length < 10) && citation && citation.text) {
+          existing.citation = citation;
+          existing.citationText = citation.text;
           chrome.storage.local.set({ reading_papers_auto: list });
         }
         return;
@@ -199,7 +269,15 @@
       }
 
       var today = new Date().toISOString().slice(0, 10);
-      list.unshift({ title: title, url: canon, date: today, keywords: [], notes: '' });
+      list.unshift({
+        title: title,
+        url: canon,
+        date: today,
+        keywords: [],
+        notes: '',
+        citation: citation,
+        citationText: citation && citation.text ? citation.text : ''
+      });
       chrome.storage.local.set({ reading_papers_auto: list });
     });
   }

@@ -60,7 +60,7 @@
       var title = (p.title || '').trim();
       var hasTitle = title && title !== '(No title)' && !isJunkTitle(title);
       if (!byCanon[c] || (hasTitle && (!byCanon[c].title || byCanon[c].title === '(No title)' || isJunkTitle(byCanon[c].title)))) {
-        byCanon[c] = { title: title || '(No title)', url: c, date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '' };
+        byCanon[c] = { title: title || '(No title)', url: c, date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '', citation: p.citation || null, citationText: p.citationText || '' };
       }
     });
     var out = Object.keys(byCanon).map(function (k) { return byCanon[k]; });
@@ -95,10 +95,11 @@
         return '<span class="badge badge-light border mr-1">' + escapeHtml(k) + '</span>';
       }).join('');
       var abstractAttr = (p.abstract || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, ' ');
+      var citationText = (p.citationText || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, ' ');
       return (
         '<div class="reading-paper-item border-bottom border-gray p-3" data-keywords="' +
         escapeHtml(kwStr(p)) +
-        '" data-abstract="' + abstractAttr + '" data-source="local" data-local-index="' + i + '">' +
+        '" data-abstract="' + abstractAttr + '" data-citation-text="' + citationText + '" data-source="local" data-local-index="' + i + '">' +
         '<div class="d-flex justify-content-between align-items-start flex-wrap">' +
         '<div class="flex-grow-1">' +
         '<h5 class="mt-0 mb-1 font-weight-normal">' +
@@ -109,6 +110,7 @@
         '<span class="mr-2"><i class="far fa-calendar-alt mr-1"></i>' + escapeHtml(p.date || '') + '</span>' +
         (p.notes ? '<span><i class="far fa-sticky-note mr-1"></i>' + escapeHtml(p.notes) + '</span>' : '') +
         '</p>' +
+        (p.citationText ? '<p class="mb-1 small text-muted"><i class="fas fa-quote-right mr-1"></i>' + escapeHtml(p.citationText) + '</p>' : '') +
         '<div class="keyword-tags">' + keywords + '</div>' +
         '<div class="mt-2 local-edit-keywords" style="display:none;">' +
         '<input type="text" class="form-control form-control-sm d-inline-block mr-1" style="width:220px;" placeholder="Keywords, comma-separated" data-edit-keywords>' +
@@ -352,7 +354,8 @@
       var notes = '';
       var icon = el.querySelector('.fa-sticky-note');
       if (icon && icon.parentNode) notes = icon.parentNode.textContent.replace(/\s+/g, ' ').trim();
-      if (title) papers.push({ title: title, url: url, notes: notes });
+      var citationText = (el.getAttribute('data-citation-text') || '').trim();
+      if (title) papers.push({ title: title, url: url, notes: notes, citationText: citationText });
     });
     return papers;
   }
@@ -362,9 +365,10 @@
     if (!papers.length) return '';
     var intro = 'Write a "Related Work" subsection for a research paper based on the following papers. ';
     intro += 'Use in-text citations [1], [2], etc. and list full references at the end. ';
-    intro += 'Keep the narrative coherent and connect the works thematically.\n\nPapers:\n\n';
+    intro += 'Keep the narrative coherent and connect the works thematically.\n';
+    intro += 'Prefer the full citation lines below when writing references.\n\nPapers:\n\n';
     var list = papers.map(function (p, i) {
-      var line = '[' + (i + 1) + '] ' + p.title + ' — ' + p.url;
+      var line = '[' + (i + 1) + '] ' + (p.citationText || (p.title + '. ' + p.url));
       if (p.notes) line += '\n     (' + p.notes + ')';
       return line;
     }).join('\n\n');
@@ -588,7 +592,7 @@
         var goodTitle = title && !isPdfFilename(title) && title !== '(No title)';
         var cur = byCanon[canon];
         if (!cur) {
-          byCanon[canon] = { title: title || '(No title)', url: canon, date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '' };
+          byCanon[canon] = { title: title || '(No title)', url: canon, date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '', citation: p.citation || null, citationText: p.citationText || '' };
           return;
         }
         var curGood = cur.title && !isPdfFilename(cur.title) && cur.title !== '(No title)';
@@ -597,12 +601,16 @@
           cur.keywords = p.keywords || [];
           cur.notes = p.notes || '';
           cur.abstract = p.abstract || cur.abstract;
+          cur.citation = p.citation || cur.citation;
+          cur.citationText = p.citationText || cur.citationText;
           cur.date = p.date || cur.date;
         } else if (goodTitle && curGood && title.length > (cur.title || '').length) {
           cur.title = title;
           cur.keywords = p.keywords || cur.keywords;
           cur.notes = p.notes || cur.notes;
           cur.abstract = p.abstract || cur.abstract;
+          cur.citation = p.citation || cur.citation;
+          cur.citationText = p.citationText || cur.citationText;
           cur.date = p.date || cur.date;
         }
       });
@@ -610,7 +618,7 @@
         var p = byCanon[k];
         if (isPdfFilename(p.title)) {
           var idMatch = p.url.match(/arxiv\.org\/abs\/(\d+\.\d+)/);
-          p = { title: idMatch ? 'arXiv ' + idMatch[1] : p.title, url: p.url, date: p.date, keywords: p.keywords, notes: p.notes, abstract: p.abstract || '' };
+          p = { title: idMatch ? 'arXiv ' + idMatch[1] : p.title, url: p.url, date: p.date, keywords: p.keywords, notes: p.notes, abstract: p.abstract || '', citation: p.citation || null, citationText: p.citationText || '' };
         }
         return p;
       });
@@ -627,6 +635,8 @@
         lines.push('    notes: "' + (p.notes || '').replace(/"/g, '\\"') + '"');
         var abs = (p.abstract || '').replace(/"/g, '\\"').replace(/\n/g, ' ');
         if (abs) lines.push('    abstract: "' + abs + '"');
+        var ctext = (p.citationText || '').replace(/"/g, '\\"').replace(/\n/g, ' ');
+        if (ctext) lines.push('    citation_text: "' + ctext + '"');
         return lines.join('\n');
       }).join('\n\n');
       var full = '# Paste under papers: in _data/reading_papers.yml\n\n' + yaml;
@@ -723,12 +733,16 @@
         var incomingTitle = (p.title || '').trim() || '(No title)';
         var existing = byUrl[n];
         if (!existing) {
-          byUrl[n] = { title: incomingTitle, url: p.url.replace(/#.*$/, '').replace(/\/+$/, ''), date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '' };
+          byUrl[n] = { title: incomingTitle, url: p.url.replace(/#.*$/, '').replace(/\/+$/, ''), date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '', citation: p.citation || null, citationText: p.citationText || '' };
           local.unshift(byUrl[n]);
           mergedCount++;
         } else if (isWeakTitle(existing.title) && !isWeakTitle(incomingTitle)) {
           existing.title = incomingTitle;
           updatedCount++;
+        }
+        if ((!existing || !existing.citationText) && p.citationText) {
+          (existing || byUrl[n]).citationText = p.citationText;
+          (existing || byUrl[n]).citation = p.citation || (existing || byUrl[n]).citation || null;
         }
       });
       if (mergedCount > 0 || updatedCount > 0) {
