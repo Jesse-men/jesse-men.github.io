@@ -394,6 +394,70 @@
     return intro + list;
   }
 
+  function extractArxivId(url) {
+    var m = (url || '').match(/arxiv\.org\/abs\/(\d{4}\.\d{4,5})(?:v\d+)?/i);
+    if (m) return m[1];
+    m = (url || '').match(/arxiv\.org\/pdf\/(\d{4}\.\d{4,5})(?:v\d+)?(?:\.pdf)?/i);
+    if (m) return m[1];
+    return '';
+  }
+
+  function inferYearFromArxivId(id) {
+    if (!id || id.length < 2) return '';
+    var yy = parseInt(id.slice(0, 2), 10);
+    if (isNaN(yy)) return '';
+    return String(2000 + yy);
+  }
+
+  function enrichPapersWithCitation(papers) {
+    var ids = [];
+    papers.forEach(function (p) {
+      var id = extractArxivId(p.url);
+      if (!id) return;
+      if (!p.year) p.year = inferYearFromArxivId(id);
+      if (!p.venue) p.venue = 'arXiv';
+      if (!p.authors) ids.push(id);
+    });
+    ids = Array.from(new Set(ids));
+    if (!ids.length) return Promise.resolve(papers);
+
+    var api = 'https://export.arxiv.org/api/query?id_list=' + encodeURIComponent(ids.join(','));
+    return fetch(api)
+      .then(function (res) { if (!res.ok) throw new Error('arXiv API unavailable'); return res.text(); })
+      .then(function (xmlText) {
+        var doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+        var entries = doc.querySelectorAll('entry');
+        var byId = {};
+        entries.forEach(function (e) {
+          var idEl = e.querySelector('id');
+          if (!idEl) return;
+          var id = extractArxivId(idEl.textContent || '');
+          if (!id) return;
+          var authorNames = [];
+          e.querySelectorAll('author > name').forEach(function (n) {
+            var t = (n.textContent || '').trim();
+            if (t) authorNames.push(t);
+          });
+          var y = '';
+          var pub = e.querySelector('published');
+          if (pub && pub.textContent) {
+            var m = pub.textContent.match(/\b(19|20)\d{2}\b/);
+            if (m) y = m[0];
+          }
+          byId[id] = { authors: authorNames.join('; '), year: y, venue: 'arXiv' };
+        });
+        papers.forEach(function (p) {
+          var id = extractArxivId(p.url);
+          if (!id || !byId[id]) return;
+          if (!p.authors && byId[id].authors) p.authors = byId[id].authors;
+          if (!p.year && byId[id].year) p.year = byId[id].year;
+          if (!p.venue && byId[id].venue) p.venue = byId[id].venue;
+        });
+        return papers;
+      })
+      .catch(function () { return papers; });
+  }
+
   function initRelatedWork() {
     var promptTa = document.getElementById('related-work-prompt');
     var btnCopyPrompt = document.getElementById('btn-copy-related-work-prompt');
@@ -412,8 +476,11 @@
         promptTa.classList.add('border', 'border-warning');
         return;
       }
-      promptTa.value = buildRelatedWorkPrompt(papers);
-      promptTa.classList.remove('border', 'border-warning');
+      promptTa.value = 'Fetching citation metadata...';
+      enrichPapersWithCitation(papers).then(function (enriched) {
+        promptTa.value = buildRelatedWorkPrompt(enriched);
+        promptTa.classList.remove('border', 'border-warning');
+      });
     });
 
     if (btnCopyPrompt && promptTa) {
