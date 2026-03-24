@@ -30,6 +30,16 @@ function canonicalPaperUrl(url) {
   return null;
 }
 
+function titleFromUrl(url) {
+  var m = (url || '').match(/arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5})(?:v\d+)?/i);
+  if (m) return '[' + m[1] + '] arXiv paper';
+  m = (url || '').match(/ieeexplore\.ieee\.org\/(?:abstract\/)?document\/(\d+)/i);
+  if (m) return 'IEEE ' + m[1];
+  m = (url || '').match(/dl\.acm\.org\/doi\/(10\.[^?#]+)/i);
+  if (m) return 'ACM ' + m[1];
+  return '(No title)';
+}
+
 function isJunkTitle(title) {
   if (!title || title.length < 3) return true;
   var t = title.trim();
@@ -229,6 +239,46 @@ document.getElementById('open-reading-list').addEventListener('click', function 
     }
     chrome.tabs.create({ url: result.url });
     window.close();
+  });
+});
+
+document.getElementById('add-current-tab').addEventListener('click', function () {
+  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+    var tab = tabs && tabs[0] ? tabs[0] : null;
+    var rawUrl = tab && tab.url ? tab.url : '';
+    var canon = canonicalPaperUrl(rawUrl);
+    if (!canon) {
+      setStatus('Current tab is not a supported paper URL.');
+      return;
+    }
+    chrome.storage.local.get(STORAGE_KEY, function (data) {
+      var list = data[STORAGE_KEY] || [];
+      var existed = false;
+      for (var i = 0; i < list.length; i++) {
+        var c = canonicalPaperUrl(list[i].url || '');
+        if (c && c === canon) {
+          existed = true;
+          break;
+        }
+      }
+      if (!existed) {
+        var today = new Date().toISOString().slice(0, 10);
+        var t = (tab && tab.title ? tab.title.trim() : '') || titleFromUrl(canon);
+        list.unshift({
+          title: t,
+          url: canon,
+          date: today,
+          keywords: [],
+          notes: '',
+          citationText: t + '. ' + canon
+        });
+        chrome.storage.local.set({ reading_papers_auto: list }, function () {
+          setStatus('Added current tab. Now click "Open Reading List (merge saved)".');
+        });
+      } else {
+        setStatus('Current paper already in saved list.');
+      }
+    });
   });
 });
 
