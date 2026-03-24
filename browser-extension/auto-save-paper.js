@@ -9,7 +9,6 @@
   function isPaperDocumentUrl(url) {
     if (!url || url.length < 15) return false;
     if (/ieeexplore\.ieee\.org\/document\/\d+(\?|$)/i.test(url)) return true;
-    if (/ieeexplore\.ieee\.org\/abstract\/document\/\d+(\?|$)/i.test(url)) return true;
     if (/ieeexplore\.ieee\.org\/stamp\/stamp\.jsp\?.*arnumber=\d+/i.test(url)) return true;
     if (/arxiv\.org\/(abs|pdf)\/\d{4}\.\d{4,5}(v\d+)?(\?|$)/i.test(url)) return true;
     if (/dl\.acm\.org\/doi\/10\.[^?#]+/i.test(url)) return true;
@@ -37,8 +36,6 @@
     var u = (url || '').replace(/#.*$/, '').replace(/\/+$/, '');
     var m = u.match(/ieeexplore\.ieee\.org\/document\/(\d+)/i);
     if (m) return 'https://ieeexplore.ieee.org/document/' + m[1];
-    m = u.match(/ieeexplore\.ieee\.org\/abstract\/document\/(\d+)/i);
-    if (m) return 'https://ieeexplore.ieee.org/document/' + m[1];
     m = u.match(/ieeexplore\.ieee\.org\/stamp\/stamp\.jsp\?.*arnumber=(\d+)/i);
     if (m) return 'https://ieeexplore.ieee.org/document/' + m[1];
     m = u.match(/arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5})(?:v\d+)?/i);
@@ -58,8 +55,6 @@
     var m = url.match(/arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5})/);
     if (m) return 'arXiv ' + m[1];
     m = url.match(/ieeexplore\.ieee\.org\/document\/(\d+)/);
-    if (m) return 'IEEE ' + m[1];
-    m = url.match(/ieeexplore\.ieee\.org\/abstract\/document\/(\d+)/);
     if (m) return 'IEEE ' + m[1];
     m = url.match(/ieeexplore\.ieee\.org\/stamp\/stamp\.jsp\?.*arnumber=(\d+)/);
     if (m) return 'IEEE ' + m[1];
