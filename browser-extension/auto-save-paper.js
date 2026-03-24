@@ -94,6 +94,17 @@
     return out;
   }
 
+  function getArxivAuthorsFromDom() {
+    var out = [];
+    var links = document.querySelectorAll('.authors a, div.authors a');
+    if (!links || !links.length) return out;
+    for (var i = 0; i < links.length; i++) {
+      var t = (links[i].textContent || '').trim();
+      if (t) out.push(t);
+    }
+    return out;
+  }
+
   function parseYear(s) {
     var m = (s || '').match(/\b(19|20)\d{2}\b/);
     return m ? m[0] : '';
@@ -101,6 +112,12 @@
 
   function buildCitationData(finalTitle, canonUrl) {
     var authors = getMetaAll('citation_author');
+    if (authors.length === 0) authors = getMetaAll('dc.creator');
+    if (authors.length === 0) authors = getMetaAll('DC.Creator');
+    if (authors.length === 0) authors = getMetaAll('author');
+    if (authors.length === 0 && /arxiv\.org/i.test(location.hostname || '')) {
+      authors = getArxivAuthorsFromDom();
+    }
     if (authors.length === 0) {
       var dcCreator = getMeta('dc.creator') || getMeta('DC.Creator');
       if (dcCreator) authors = dcCreator.split(/;|, and | and /i).map(function (x) { return x.trim(); }).filter(Boolean);
@@ -244,7 +261,13 @@
         if (pCanon === canon) { existing = list[i]; break; }
       }
       if (existing) {
-        if (titleFromPage && titleFromPage.length >= 2 && (existing.title === '(No title)' || existing.title.indexOf('arXiv ') === 0 || existing.title.indexOf('IEEE ') === 0 || existing.title.indexOf('ACM ') === 0)) {
+        if (titleFromPage && titleFromPage.length >= 2 && (
+          existing.title === '(No title)' ||
+          existing.title.indexOf('arXiv ') === 0 ||
+          existing.title.indexOf('IEEE ') === 0 ||
+          existing.title.indexOf('ACM ') === 0 ||
+          /^\[\d{4}\.\d{4,5}\]/.test((existing.title || '').trim())
+        )) {
           existing.title = titleFromPage;
           existing.url = canon;
           if (citation && citation.text) {
