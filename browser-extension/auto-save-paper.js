@@ -181,6 +181,26 @@
       if (a && authors.indexOf(a) === -1) authors.push(a);
     }
     var authorStr = authors.join('; ');
+    if (!authorStr) {
+      var host = location.hostname || '';
+      if (/arxiv\.org/i.test(host)) {
+        var arxAuthors = [].slice.call(document.querySelectorAll('.authors a, .authors'));
+        var arx = [];
+        arxAuthors.forEach(function (n) {
+          var t = (n.textContent || '').replace(/^\s*Authors?:\s*/i, '').trim();
+          if (t && arx.indexOf(t) === -1) arx.push(t);
+        });
+        if (arx.length) authorStr = arx.join('; ');
+      } else if (/ieeexplore\.ieee\.org/i.test(host)) {
+        var ieeeAuthors = [].slice.call(document.querySelectorAll('[class*="author"] a, a[href*="/author/"]'));
+        var ieee = [];
+        ieeeAuthors.forEach(function (n) {
+          var t = (n.textContent || '').trim();
+          if (t && t.length < 120 && ieee.indexOf(t) === -1) ieee.push(t);
+        });
+        if (ieee.length) authorStr = ieee.join('; ');
+      }
+    }
 
     var venue = textFromMeta([
       'citation_journal_title',
@@ -202,6 +222,11 @@
     if (dateRaw) {
       var ym = dateRaw.match(/\b(19|20)\d{2}\b/);
       if (ym) year = ym[0];
+    }
+    if (!year) {
+      var txt = document.body ? (document.body.innerText || '') : '';
+      var m = txt.match(/\b(19|20)\d{2}\b/);
+      if (m) year = m[0];
     }
 
     return { authors: authorStr, venue: venue, year: year };

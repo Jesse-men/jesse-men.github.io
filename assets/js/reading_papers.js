@@ -61,6 +61,10 @@
       var hasTitle = title && title !== '(No title)' && !isJunkTitle(title);
       if (!byCanon[c] || (hasTitle && (!byCanon[c].title || byCanon[c].title === '(No title)' || isJunkTitle(byCanon[c].title)))) {
         byCanon[c] = { title: title || '(No title)', url: c, date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '', authors: p.authors || '', venue: p.venue || '', year: p.year || '' };
+      } else {
+        if (!byCanon[c].authors && p.authors) byCanon[c].authors = p.authors;
+        if (!byCanon[c].venue && p.venue) byCanon[c].venue = p.venue;
+        if (!byCanon[c].year && p.year) byCanon[c].year = p.year;
       }
     });
     var out = Object.keys(byCanon).map(function (k) { return byCanon[k]; });
@@ -763,9 +767,16 @@
           byUrl[n] = { title: incomingTitle, url: p.url.replace(/#.*$/, '').replace(/\/+$/, ''), date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '', authors: p.authors || '', venue: p.venue || '', year: p.year || '' };
           local.unshift(byUrl[n]);
           mergedCount++;
-        } else if (isWeakTitle(existing.title) && !isWeakTitle(incomingTitle)) {
-          existing.title = incomingTitle;
-          updatedCount++;
+        } else {
+          var changed = false;
+          if (isWeakTitle(existing.title) && !isWeakTitle(incomingTitle)) {
+            existing.title = incomingTitle;
+            changed = true;
+          }
+          if (!existing.authors && p.authors) { existing.authors = p.authors; changed = true; }
+          if (!existing.venue && p.venue) { existing.venue = p.venue; changed = true; }
+          if (!existing.year && p.year) { existing.year = p.year; changed = true; }
+          if (changed) updatedCount++;
         }
       });
       if (mergedCount > 0 || updatedCount > 0) {
