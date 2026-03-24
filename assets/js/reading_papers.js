@@ -721,15 +721,15 @@
       local.forEach(function (p) { byUrl[normalizeUrl(p.url)] = p; });
       var mergedCount = 0;
       var updatedCount = 0;
-      function hasRichCitationText(t) {
-        if (!t || t.length < 10) return false;
+      function citationAuthorCount(c) {
+        return c && c.authors && Array.isArray(c.authors) ? c.authors.filter(Boolean).length : 0;
+      }
+      function hasWeakCitationText(t) {
+        if (!t || t.length < 10) return true;
         var s = (t || '').trim();
-        // Weak fallback looks like: "Title. https://..."
-        if (/https?:\/\/\S+$/i.test(s) && s.indexOf('doi:') === -1 && s.indexOf('(') === -1) return false;
-        // Rich citation usually contains year/doi and more structure.
-        if (/\((19|20)\d{2}\)/.test(s)) return true;
-        if (/doi:/i.test(s)) return true;
-        return s.split('. ').length >= 3;
+        // Typical weak fallback: "Title. https://..."
+        if (/https?:\/\/\S+$/i.test(s) && s.indexOf('doi:') === -1 && s.indexOf('(') === -1) return true;
+        return false;
       }
       function isWeakTitle(t) {
         if (!t || t.length < 2) return true;
@@ -751,9 +751,13 @@
           updatedCount++;
         }
         var target = existing || byUrl[n];
-        var incomingRich = hasRichCitationText(p.citationText || '');
-        var existingRich = hasRichCitationText(target.citationText || '');
-        if (p.citationText && (!target.citationText || (incomingRich && !existingRich))) {
+        var incomingAuthors = citationAuthorCount(p.citation);
+        var existingAuthors = citationAuthorCount(target.citation);
+        var shouldUpgradeCitation =
+          (!!p.citationText && !target.citationText) ||
+          (incomingAuthors > existingAuthors) ||
+          (incomingAuthors > 0 && hasWeakCitationText(target.citationText || ''));
+        if (shouldUpgradeCitation && p.citationText) {
           target.citationText = p.citationText;
           target.citation = p.citation || target.citation || null;
           updatedCount++;

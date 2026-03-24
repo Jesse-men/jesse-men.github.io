@@ -110,6 +110,39 @@
     return m ? m[0] : '';
   }
 
+  function hasAuthors(citation) {
+    return !!(citation && citation.authors && citation.authors.length > 0);
+  }
+
+  function mergeCitation(base, extra) {
+    var out = {
+      title: (base && base.title) || '',
+      authors: (base && base.authors) ? base.authors.slice() : [],
+      year: (base && base.year) || '',
+      venue: (base && base.venue) || '',
+      doi: (base && base.doi) || '',
+      url: (base && base.url) || ''
+    };
+    if (extra) {
+      if (extra.title && (!out.title || out.title.length < 3)) out.title = extra.title;
+      if (extra.authors && extra.authors.length && out.authors.length === 0) out.authors = extra.authors.slice();
+      if (extra.year && !out.year) out.year = extra.year;
+      if (extra.venue && !out.venue) out.venue = extra.venue;
+      if (extra.doi && !out.doi) out.doi = extra.doi;
+      if (extra.url && !out.url) out.url = extra.url;
+    }
+    var authorText = out.authors.length ? (out.authors.length <= 3 ? out.authors.join(', ') : (out.authors[0] + ' et al.')) : '';
+    var parts = [];
+    if (authorText) parts.push(authorText);
+    if (out.year) parts.push('(' + out.year + ')');
+    if (out.title) parts.push(out.title + '.');
+    if (out.venue) parts.push(out.venue + '.');
+    if (out.doi) parts.push('doi:' + out.doi + '.');
+    if (out.url) parts.push(out.url);
+    out.text = parts.join(' ');
+    return out;
+  }
+
   function buildCitationData(finalTitle, canonUrl) {
     var authors = getMetaAll('citation_author');
     if (authors.length === 0) authors = getMetaAll('dc.creator');
@@ -141,16 +174,59 @@
       doi: doi || '',
       url: canonUrl || ''
     };
-    var authorText = authors.length ? (authors.length <= 3 ? authors.join(', ') : (authors[0] + ' et al.')) : '';
-    var parts = [];
-    if (authorText) parts.push(authorText);
-    if (citation.year) parts.push('(' + citation.year + ')');
-    if (citation.title) parts.push(citation.title + '.');
-    if (citation.venue) parts.push(citation.venue + '.');
-    if (citation.doi) parts.push('doi:' + citation.doi + '.');
-    if (citation.url) parts.push(citation.url);
-    citation.text = parts.join(' ');
-    return citation;
+    return mergeCitation(citation, null);
+  }
+
+  function parseCitationFromHtml(html, fallbackUrl) {
+    try {
+      var doc = new DOMParser().parseFromString(html, 'text/html');
+      function qMetaAll(name) {
+        var out = [];
+        var els = doc.querySelectorAll('meta[name="' + name + '"]');
+        for (var i = 0; i < els.length; i++) {
+          var v = (els[i].getAttribute('content') || '').trim();
+          if (v) out.push(v);
+        }
+        return out;
+      }
+      function qMeta(name) {
+        var el = doc.querySelector('meta[name="' + name + '"], meta[property="' + name + '"]');
+        return el ? (el.getAttribute('content') || '').trim() : '';
+      }
+      var title = qMeta('citation_title') || qMeta('dc.Title') || qMeta('dc.title') || qMeta('og:title') || '';
+      var authors = qMetaAll('citation_author');
+      if (!authors.length) {
+        var links = doc.querySelectorAll('.authors a, div.authors a');
+        for (var j = 0; j < links.length; j++) {
+          var t = (links[j].textContent || '').trim();
+          if (t) authors.push(t);
+        }
+      }
+      var year = parseYear(qMeta('citation_publication_date') || qMeta('citation_date') || qMeta('dc.date') || '');
+      var venue = qMeta('citation_journal_title') || qMeta('citation_conference_title') || qMeta('og:site_name') || '';
+      var doi = qMeta('citation_doi') || '';
+      return mergeCitation({
+        title: title,
+        authors: authors,
+        year: year,
+        venue: venue,
+        doi: doi,
+        url: fallbackUrl || ''
+      }, null);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function fetchCitationFromCanonical(canonUrl, done) {
+    if (!canonUrl || typeof fetch !== 'function') { done(null); return; }
+    fetch(canonUrl, { method: 'GET', credentials: 'omit' })
+      .then(function (res) { return res.ok ? res.text() : ''; })
+      .then(function (html) {
+        if (!html) { done(null); return; }
+        done(parseCitationFromHtml(html, canonUrl));
+      })
+      .catch(function () { done(null); });
   }
 
   function getTitleFromPage() {
@@ -251,57 +327,63 @@
     var titleFromPage = getTitleFromPage();
     if (isJunkTitle(titleFromPage)) titleFromPage = '';
     var title = (titleFromPage && titleFromPage.length >= 2) ? titleFromPage : titleFromUrl(cleanUrl);
-    var citation = buildCitationData(title, canon);
+    var citationBase = buildCitationData(title, canon);
+    function proceedWithCitation(citation) {
+      citation = citation || citationBase;
 
-    chrome.storage.local.get(STORAGE_KEY, function (data) {
-      var list = data[STORAGE_KEY] || [];
-      var existing = null;
-      for (var i = 0; i < list.length; i++) {
-        var pCanon = canonicalPaperUrl(list[i].url);
-        if (pCanon === canon) { existing = list[i]; break; }
-      }
-      if (existing) {
-        if (titleFromPage && titleFromPage.length >= 2 && (
-          existing.title === '(No title)' ||
-          existing.title.indexOf('arXiv ') === 0 ||
-          existing.title.indexOf('IEEE ') === 0 ||
-          existing.title.indexOf('ACM ') === 0 ||
-          /^\[\d{4}\.\d{4,5}\]/.test((existing.title || '').trim())
-        )) {
-          existing.title = titleFromPage;
-          existing.url = canon;
+      chrome.storage.local.get(STORAGE_KEY, function (data) {
+        var list = data[STORAGE_KEY] || [];
+        var existing = null;
+        for (var i = 0; i < list.length; i++) {
+          var pCanon = canonicalPaperUrl(list[i].url);
+          if (pCanon === canon) { existing = list[i]; break; }
+        }
+        if (existing) {
+          if (titleFromPage && titleFromPage.length >= 2 && (
+            existing.title === '(No title)' ||
+            existing.title.indexOf('arXiv ') === 0 ||
+            existing.title.indexOf('IEEE ') === 0 ||
+            existing.title.indexOf('ACM ') === 0 ||
+            /^\[\d{4}\.\d{4,5}\]/.test((existing.title || '').trim())
+          )) {
+            existing.title = titleFromPage;
+            existing.url = canon;
+          }
           if (citation && citation.text) {
-            existing.citation = citation;
-            existing.citationText = citation.text;
+            var existingAuthors = existing.citation && existing.citation.authors ? existing.citation.authors.length : 0;
+            if (!existing.citationText || existing.citationText.length < 10 || (existingAuthors === 0 && hasAuthors(citation))) {
+              existing.citation = citation;
+              existing.citationText = citation.text;
+            }
           }
           chrome.storage.local.set({ reading_papers_auto: list });
           return;
         }
-        if ((!existing.citationText || existing.citationText.length < 10) && citation && citation.text) {
-          existing.citation = citation;
-          existing.citationText = citation.text;
-          chrome.storage.local.set({ reading_papers_auto: list });
+
+        // If full page title is not available yet, still save with a safe URL-derived fallback
+        // (e.g. arXiv/IEEE/ACM identifier) to avoid missing newly visited papers.
+        if (!titleFromPage || titleFromPage.length < 2) {
+          if (!title || title === '(No title)' || isJunkTitle(title)) return;
         }
-        return;
-      }
 
-      // If full page title is not available yet, still save with a safe URL-derived fallback
-      // (e.g. arXiv/IEEE/ACM identifier) to avoid missing newly visited papers.
-      if (!titleFromPage || titleFromPage.length < 2) {
-        if (!title || title === '(No title)' || isJunkTitle(title)) return;
-      }
-
-      var today = new Date().toISOString().slice(0, 10);
-      list.unshift({
-        title: title,
-        url: canon,
-        date: today,
-        keywords: [],
-        notes: '',
-        citation: citation,
-        citationText: citation && citation.text ? citation.text : ''
+        var today = new Date().toISOString().slice(0, 10);
+        list.unshift({
+          title: title,
+          url: canon,
+          date: today,
+          keywords: [],
+          notes: '',
+          citation: citation,
+          citationText: citation && citation.text ? citation.text : ''
+        });
+        chrome.storage.local.set({ reading_papers_auto: list });
       });
-      chrome.storage.local.set({ reading_papers_auto: list });
+    }
+
+    // Dual path: parse citation from current DOM and canonical page HTML, then merge.
+    fetchCitationFromCanonical(canon, function (fetchedCitation) {
+      var merged = mergeCitation(citationBase, fetchedCitation);
+      proceedWithCitation(merged);
     });
   }
 
