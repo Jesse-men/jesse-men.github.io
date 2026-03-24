@@ -105,6 +105,16 @@
     return out;
   }
 
+  function getArxivAuthorsFromText(text) {
+    var s = (text || '').replace(/\u00A0/g, ' ');
+    var m = s.match(/Authors?\s*:\s*([^\n]+)/i);
+    if (!m || !m[1]) return [];
+    return m[1]
+      .split(/,| and /i)
+      .map(function (x) { return x.trim(); })
+      .filter(function (x) { return x && x.length > 1 && x.toLowerCase() !== 'and'; });
+  }
+
   function parseYear(s) {
     var m = (s || '').match(/\b(19|20)\d{2}\b/);
     return m ? m[0] : '';
@@ -150,6 +160,9 @@
     if (authors.length === 0) authors = getMetaAll('author');
     if (authors.length === 0 && /arxiv\.org/i.test(location.hostname || '')) {
       authors = getArxivAuthorsFromDom();
+    }
+    if (authors.length === 0 && /arxiv\.org/i.test(location.hostname || '')) {
+      authors = getArxivAuthorsFromText(document.body ? document.body.innerText : '');
     }
     if (authors.length === 0) {
       var dcCreator = getMeta('dc.creator') || getMeta('DC.Creator');
@@ -201,6 +214,10 @@
           var t = (links[j].textContent || '').trim();
           if (t) authors.push(t);
         }
+      }
+      if (!authors.length) {
+        var textAuthors = getArxivAuthorsFromText(doc.body ? doc.body.textContent : '');
+        if (textAuthors.length) authors = textAuthors;
       }
       var year = parseYear(qMeta('citation_publication_date') || qMeta('citation_date') || qMeta('dc.date') || '');
       var venue = qMeta('citation_journal_title') || qMeta('citation_conference_title') || qMeta('og:site_name') || '';
