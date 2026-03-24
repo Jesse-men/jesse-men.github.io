@@ -721,6 +721,16 @@
       local.forEach(function (p) { byUrl[normalizeUrl(p.url)] = p; });
       var mergedCount = 0;
       var updatedCount = 0;
+      function hasRichCitationText(t) {
+        if (!t || t.length < 10) return false;
+        var s = (t || '').trim();
+        // Weak fallback looks like: "Title. https://..."
+        if (/https?:\/\/\S+$/i.test(s) && s.indexOf('doi:') === -1 && s.indexOf('(') === -1) return false;
+        // Rich citation usually contains year/doi and more structure.
+        if (/\((19|20)\d{2}\)/.test(s)) return true;
+        if (/doi:/i.test(s)) return true;
+        return s.split('. ').length >= 3;
+      }
       function isWeakTitle(t) {
         if (!t || t.length < 2) return true;
         if (t === '(No title)') return true;
@@ -740,9 +750,13 @@
           existing.title = incomingTitle;
           updatedCount++;
         }
-        if ((!existing || !existing.citationText) && p.citationText) {
-          (existing || byUrl[n]).citationText = p.citationText;
-          (existing || byUrl[n]).citation = p.citation || (existing || byUrl[n]).citation || null;
+        var target = existing || byUrl[n];
+        var incomingRich = hasRichCitationText(p.citationText || '');
+        var existingRich = hasRichCitationText(target.citationText || '');
+        if (p.citationText && (!target.citationText || (incomingRich && !existingRich))) {
+          target.citationText = p.citationText;
+          target.citation = p.citation || target.citation || null;
+          updatedCount++;
         }
       });
       if (mergedCount > 0 || updatedCount > 0) {
