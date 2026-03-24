@@ -60,11 +60,7 @@
       var title = (p.title || '').trim();
       var hasTitle = title && title !== '(No title)' && !isJunkTitle(title);
       if (!byCanon[c] || (hasTitle && (!byCanon[c].title || byCanon[c].title === '(No title)' || isJunkTitle(byCanon[c].title)))) {
-        byCanon[c] = { title: title || '(No title)', url: c, date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '', authors: p.authors || '', venue: p.venue || '', year: p.year || '' };
-      } else {
-        if (!byCanon[c].authors && p.authors) byCanon[c].authors = p.authors;
-        if (!byCanon[c].venue && p.venue) byCanon[c].venue = p.venue;
-        if (!byCanon[c].year && p.year) byCanon[c].year = p.year;
+        byCanon[c] = { title: title || '(No title)', url: c, date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '' };
       }
     });
     var out = Object.keys(byCanon).map(function (k) { return byCanon[k]; });
@@ -99,13 +95,10 @@
         return '<span class="badge badge-light border mr-1">' + escapeHtml(k) + '</span>';
       }).join('');
       var abstractAttr = (p.abstract || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, ' ');
-      var authorsAttr = (p.authors || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      var venueAttr = (p.venue || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      var yearAttr = (p.year || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       return (
         '<div class="reading-paper-item border-bottom border-gray p-3" data-keywords="' +
         escapeHtml(kwStr(p)) +
-        '" data-abstract="' + abstractAttr + '" data-authors="' + authorsAttr + '" data-venue="' + venueAttr + '" data-year="' + yearAttr + '" data-source="local" data-local-index="' + i + '">' +
+        '" data-abstract="' + abstractAttr + '" data-source="local" data-local-index="' + i + '">' +
         '<div class="d-flex justify-content-between align-items-start flex-wrap">' +
         '<div class="flex-grow-1">' +
         '<h5 class="mt-0 mb-1 font-weight-normal">' +
@@ -208,14 +201,6 @@
       if (k && k !== '*') keywords.push(k);
     }
     return keywords;
-  }
-
-  function getCitationMetaFromEl(el) {
-    return {
-      authors: (el.getAttribute('data-authors') || '').trim(),
-      venue: (el.getAttribute('data-venue') || '').trim(),
-      year: (el.getAttribute('data-year') || '').trim()
-    };
   }
 
   function applyFilter() {
@@ -367,10 +352,7 @@
       var notes = '';
       var icon = el.querySelector('.fa-sticky-note');
       if (icon && icon.parentNode) notes = icon.parentNode.textContent.replace(/\s+/g, ' ').trim();
-      if (title) {
-        var c = getCitationMetaFromEl(el);
-        papers.push({ title: title, url: url, notes: notes, authors: c.authors, venue: c.venue, year: c.year });
-      }
+      if (title) papers.push({ title: title, url: url, notes: notes });
     });
     return papers;
   }
@@ -380,82 +362,13 @@
     if (!papers.length) return '';
     var intro = 'Write a "Related Work" subsection for a research paper based on the following papers. ';
     intro += 'Use in-text citations [1], [2], etc. and list full references at the end. ';
-    intro += 'Keep the narrative coherent and connect the works thematically. ';
-    intro += 'For each cited paper, use the citation metadata provided (title, authors, venue, year).\n\nPapers:\n\n';
+    intro += 'Keep the narrative coherent and connect the works thematically.\n\nPapers:\n\n';
     var list = papers.map(function (p, i) {
-      var line = '[' + (i + 1) + '] ' + p.title;
-      line += '\n     Authors: ' + (p.authors || 'N/A');
-      line += '\n     Venue: ' + (p.venue || 'N/A');
-      line += '\n     Year: ' + (p.year || 'N/A');
-      line += '\n     URL: ' + p.url;
+      var line = '[' + (i + 1) + '] ' + p.title + ' — ' + p.url;
       if (p.notes) line += '\n     (' + p.notes + ')';
       return line;
     }).join('\n\n');
     return intro + list;
-  }
-
-  function extractArxivId(url) {
-    var m = (url || '').match(/arxiv\.org\/abs\/(\d{4}\.\d{4,5})(?:v\d+)?/i);
-    if (m) return m[1];
-    m = (url || '').match(/arxiv\.org\/pdf\/(\d{4}\.\d{4,5})(?:v\d+)?(?:\.pdf)?/i);
-    if (m) return m[1];
-    return '';
-  }
-
-  function inferYearFromArxivId(id) {
-    if (!id || id.length < 2) return '';
-    var yy = parseInt(id.slice(0, 2), 10);
-    if (isNaN(yy)) return '';
-    return String(2000 + yy);
-  }
-
-  function enrichPapersWithCitation(papers) {
-    var ids = [];
-    papers.forEach(function (p) {
-      var id = extractArxivId(p.url);
-      if (!id) return;
-      if (!p.year) p.year = inferYearFromArxivId(id);
-      if (!p.venue) p.venue = 'arXiv';
-      if (!p.authors) ids.push(id);
-    });
-    ids = Array.from(new Set(ids));
-    if (!ids.length) return Promise.resolve(papers);
-
-    var api = 'https://export.arxiv.org/api/query?id_list=' + encodeURIComponent(ids.join(','));
-    return fetch(api)
-      .then(function (res) { if (!res.ok) throw new Error('arXiv API unavailable'); return res.text(); })
-      .then(function (xmlText) {
-        var doc = new DOMParser().parseFromString(xmlText, 'application/xml');
-        var entries = doc.querySelectorAll('entry');
-        var byId = {};
-        entries.forEach(function (e) {
-          var idEl = e.querySelector('id');
-          if (!idEl) return;
-          var id = extractArxivId(idEl.textContent || '');
-          if (!id) return;
-          var authorNames = [];
-          e.querySelectorAll('author > name').forEach(function (n) {
-            var t = (n.textContent || '').trim();
-            if (t) authorNames.push(t);
-          });
-          var y = '';
-          var pub = e.querySelector('published');
-          if (pub && pub.textContent) {
-            var m = pub.textContent.match(/\b(19|20)\d{2}\b/);
-            if (m) y = m[0];
-          }
-          byId[id] = { authors: authorNames.join('; '), year: y, venue: 'arXiv' };
-        });
-        papers.forEach(function (p) {
-          var id = extractArxivId(p.url);
-          if (!id || !byId[id]) return;
-          if (!p.authors && byId[id].authors) p.authors = byId[id].authors;
-          if (!p.year && byId[id].year) p.year = byId[id].year;
-          if (!p.venue && byId[id].venue) p.venue = byId[id].venue;
-        });
-        return papers;
-      })
-      .catch(function () { return papers; });
   }
 
   function initRelatedWork() {
@@ -476,11 +389,8 @@
         promptTa.classList.add('border', 'border-warning');
         return;
       }
-      promptTa.value = 'Fetching citation metadata...';
-      enrichPapersWithCitation(papers).then(function (enriched) {
-        promptTa.value = buildRelatedWorkPrompt(enriched);
-        promptTa.classList.remove('border', 'border-warning');
-      });
+      promptTa.value = buildRelatedWorkPrompt(papers);
+      promptTa.classList.remove('border', 'border-warning');
     });
 
     if (btnCopyPrompt && promptTa) {
@@ -614,9 +524,6 @@
         var kwStr = (document.getElementById('input-keywords').value || '').trim();
         var notes = (document.getElementById('input-notes').value || '').trim();
         var abstract = (document.getElementById('input-abstract') && document.getElementById('input-abstract').value) ? document.getElementById('input-abstract').value.trim() : '';
-        var authors = (document.getElementById('input-authors') && document.getElementById('input-authors').value) ? document.getElementById('input-authors').value.trim() : '';
-        var venue = (document.getElementById('input-venue') && document.getElementById('input-venue').value) ? document.getElementById('input-venue').value.trim() : '';
-        var year = (document.getElementById('input-year') && document.getElementById('input-year').value) ? document.getElementById('input-year').value.trim() : '';
         var keywords = kwStr ? kwStr.split(/[,，]/).map(function (k) { return k.trim(); }).filter(Boolean) : [];
 
         var papers = getLocalPapers();
@@ -626,10 +533,7 @@
           date: todayStr(),
           keywords: keywords,
           notes: notes,
-          abstract: abstract,
-          authors: authors,
-          venue: venue,
-          year: year
+          abstract: abstract
         });
         setLocalPapers(papers);
 
@@ -638,9 +542,6 @@
         document.getElementById('input-keywords').value = '';
         document.getElementById('input-notes').value = '';
         if (document.getElementById('input-abstract')) document.getElementById('input-abstract').value = '';
-        if (document.getElementById('input-authors')) document.getElementById('input-authors').value = '';
-        if (document.getElementById('input-venue')) document.getElementById('input-venue').value = '';
-        if (document.getElementById('input-year')) document.getElementById('input-year').value = '';
 
         renderLocalPapers();
         updateKeywordPills();
@@ -687,7 +588,7 @@
         var goodTitle = title && !isPdfFilename(title) && title !== '(No title)';
         var cur = byCanon[canon];
         if (!cur) {
-          byCanon[canon] = { title: title || '(No title)', url: canon, date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '', authors: p.authors || '', venue: p.venue || '', year: p.year || '' };
+          byCanon[canon] = { title: title || '(No title)', url: canon, date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '' };
           return;
         }
         var curGood = cur.title && !isPdfFilename(cur.title) && cur.title !== '(No title)';
@@ -696,18 +597,12 @@
           cur.keywords = p.keywords || [];
           cur.notes = p.notes || '';
           cur.abstract = p.abstract || cur.abstract;
-          cur.authors = p.authors || cur.authors;
-          cur.venue = p.venue || cur.venue;
-          cur.year = p.year || cur.year;
           cur.date = p.date || cur.date;
         } else if (goodTitle && curGood && title.length > (cur.title || '').length) {
           cur.title = title;
           cur.keywords = p.keywords || cur.keywords;
           cur.notes = p.notes || cur.notes;
           cur.abstract = p.abstract || cur.abstract;
-          cur.authors = p.authors || cur.authors;
-          cur.venue = p.venue || cur.venue;
-          cur.year = p.year || cur.year;
           cur.date = p.date || cur.date;
         }
       });
@@ -715,7 +610,7 @@
         var p = byCanon[k];
         if (isPdfFilename(p.title)) {
           var idMatch = p.url.match(/arxiv\.org\/abs\/(\d+\.\d+)/);
-          p = { title: idMatch ? 'arXiv ' + idMatch[1] : p.title, url: p.url, date: p.date, keywords: p.keywords, notes: p.notes, abstract: p.abstract || '', authors: p.authors || '', venue: p.venue || '', year: p.year || '' };
+          p = { title: idMatch ? 'arXiv ' + idMatch[1] : p.title, url: p.url, date: p.date, keywords: p.keywords, notes: p.notes, abstract: p.abstract || '' };
         }
         return p;
       });
@@ -732,9 +627,6 @@
         lines.push('    notes: "' + (p.notes || '').replace(/"/g, '\\"') + '"');
         var abs = (p.abstract || '').replace(/"/g, '\\"').replace(/\n/g, ' ');
         if (abs) lines.push('    abstract: "' + abs + '"');
-        if (p.authors) lines.push('    authors: "' + (p.authors || '').replace(/"/g, '\\"') + '"');
-        if (p.venue) lines.push('    venue: "' + (p.venue || '').replace(/"/g, '\\"') + '"');
-        if (p.year) lines.push('    year: "' + (p.year || '').replace(/"/g, '\\"') + '"');
         return lines.join('\n');
       }).join('\n\n');
       var full = '# Paste under papers: in _data/reading_papers.yml\n\n' + yaml;
@@ -831,19 +723,12 @@
         var incomingTitle = (p.title || '').trim() || '(No title)';
         var existing = byUrl[n];
         if (!existing) {
-          byUrl[n] = { title: incomingTitle, url: p.url.replace(/#.*$/, '').replace(/\/+$/, ''), date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '', authors: p.authors || '', venue: p.venue || '', year: p.year || '' };
+          byUrl[n] = { title: incomingTitle, url: p.url.replace(/#.*$/, '').replace(/\/+$/, ''), date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '' };
           local.unshift(byUrl[n]);
           mergedCount++;
-        } else {
-          var changed = false;
-          if (isWeakTitle(existing.title) && !isWeakTitle(incomingTitle)) {
-            existing.title = incomingTitle;
-            changed = true;
-          }
-          if (!existing.authors && p.authors) { existing.authors = p.authors; changed = true; }
-          if (!existing.venue && p.venue) { existing.venue = p.venue; changed = true; }
-          if (!existing.year && p.year) { existing.year = p.year; changed = true; }
-          if (changed) updatedCount++;
+        } else if (isWeakTitle(existing.title) && !isWeakTitle(incomingTitle)) {
+          existing.title = incomingTitle;
+          updatedCount++;
         }
       });
       if (mergedCount > 0 || updatedCount > 0) {

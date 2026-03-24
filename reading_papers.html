@@ -8,7 +8,7 @@ body_attr: ""
 
 <div class="row py-4">
   <div class="col-12">
-    <h1 class="mb-2">Reading List <span class="small font-weight-normal text-muted">(v16)</span></h1>
+    <h1 class="mb-2">Reading List <span class="small font-weight-normal text-muted">(v14)</span></h1>
     <p class="text-muted mb-4">Track papers you've read on the web and filter by keywords.</p>
 
     <!-- Keyword filter: match in abstract + keyword tags -->
@@ -89,18 +89,6 @@ body_attr: ""
                 <label for="input-abstract">Abstract</label>
                 <textarea class="form-control" id="input-abstract" rows="3" placeholder="Paste abstract here; used for keyword filter (search in abstract)"></textarea>
               </div>
-              <div class="form-group col-md-6">
-                <label for="input-authors">Authors</label>
-                <input type="text" class="form-control" id="input-authors" placeholder="e.g. A. Smith; B. Lee">
-              </div>
-              <div class="form-group col-md-4">
-                <label for="input-venue">Journal / Conference</label>
-                <input type="text" class="form-control" id="input-venue" placeholder="e.g. IEEE TMM">
-              </div>
-              <div class="form-group col-md-2">
-                <label for="input-year">Year</label>
-                <input type="text" class="form-control" id="input-year" placeholder="2026">
-              </div>
               <div class="form-group col-12">
                 <label for="input-keywords">Keywords (comma-separated)</label>
                 <input type="text" class="form-control" id="input-keywords" placeholder="e.g. holographic, 5G, edge computing">
@@ -122,10 +110,7 @@ body_attr: ""
         {% assign papers = site.data.reading_papers.papers %}
         {% for p in papers %}
         {% assign abs = p.abstract | default: '' | replace: '"', '&quot;' %}
-        {% assign authors = p.authors | default: '' | replace: '"', '&quot;' %}
-        {% assign venue = p.venue | default: '' | replace: '"', '&quot;' %}
-        {% assign year = p.year | default: '' | replace: '"', '&quot;' %}
-        <div class="reading-paper-item border-bottom border-gray p-3" data-keywords="{{ p.keywords | join: ',' }}" data-abstract="{{ abs }}" data-authors="{{ authors }}" data-venue="{{ venue }}" data-year="{{ year }}">
+        <div class="reading-paper-item border-bottom border-gray p-3" data-keywords="{{ p.keywords | join: ',' }}" data-abstract="{{ abs }}">
           <div class="d-flex justify-content-between align-items-start flex-wrap">
             <div class="flex-grow-1">
               <h5 class="mt-0 mb-1 font-weight-normal">
@@ -210,4 +195,4 @@ body_attr: ""
   </div>
 </div>
 
-<script src="{{ '/assets/js/reading_papers.js' | relative_url }}?v=23"></script>
+<script src="{{ '/assets/js/reading_papers.js' | relative_url }}?v=20"></script>
