@@ -60,17 +60,7 @@
       var title = (p.title || '').trim();
       var hasTitle = title && title !== '(No title)' && !isJunkTitle(title);
       if (!byCanon[c] || (hasTitle && (!byCanon[c].title || byCanon[c].title === '(No title)' || isJunkTitle(byCanon[c].title)))) {
-        byCanon[c] = {
-          title: title || '(No title)',
-          url: c,
-          date: p.date || '',
-          keywords: p.keywords || [],
-          notes: p.notes || '',
-          abstract: p.abstract || '',
-          authors: p.authors || '',
-          venue: p.venue || '',
-          year: p.year || ''
-        };
+        byCanon[c] = { title: title || '(No title)', url: c, date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '' };
       }
     });
     var out = Object.keys(byCanon).map(function (k) { return byCanon[k]; });
@@ -105,11 +95,6 @@
         return '<span class="badge badge-light border mr-1">' + escapeHtml(k) + '</span>';
       }).join('');
       var abstractAttr = (p.abstract || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, ' ');
-      var citationBits = [];
-      if (p.authors) citationBits.push('<span class="mr-2"><i class="far fa-user mr-1"></i>' + escapeHtml(p.authors) + '</span>');
-      if (p.venue) citationBits.push('<span class="mr-2"><i class="far fa-bookmark mr-1"></i>' + escapeHtml(p.venue) + '</span>');
-      if (p.year) citationBits.push('<span><i class="far fa-clock mr-1"></i>' + escapeHtml(String(p.year)) + '</span>');
-      var citationLine = citationBits.length ? ('<p class="mb-1 small text-muted">' + citationBits.join('') + '</p>') : '';
       return (
         '<div class="reading-paper-item border-bottom border-gray p-3" data-keywords="' +
         escapeHtml(kwStr(p)) +
@@ -120,7 +105,6 @@
         '<span class="badge badge-secondary mr-1" title="Stored on this device only">Local</span>' +
         '<a href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener">' + escapeHtml(p.title) + '</a>' +
         '</h5>' +
-        citationLine +
         '<p class="mb-1 small text-muted">' +
         '<span class="mr-2"><i class="far fa-calendar-alt mr-1"></i>' + escapeHtml(p.date || '') + '</span>' +
         (p.notes ? '<span><i class="far fa-sticky-note mr-1"></i>' + escapeHtml(p.notes) + '</span>' : '') +
@@ -130,16 +114,9 @@
         '<input type="text" class="form-control form-control-sm d-inline-block mr-1" style="width:220px;" placeholder="Keywords, comma-separated" data-edit-keywords>' +
         '<button type="button" class="btn btn-sm btn-success btn-save-keywords" data-index="' + i + '">Save</button>' +
         '</div>' +
-        '<div class="mt-2 local-edit-citation" style="display:none;">' +
-        '<input type="text" class="form-control form-control-sm mb-1" placeholder="Authors (e.g. A; B)" data-edit-authors>' +
-        '<input type="text" class="form-control form-control-sm mb-1" placeholder="Venue (journal/conference)" data-edit-venue>' +
-        '<input type="number" class="form-control form-control-sm mb-1" min="1900" max="2100" placeholder="Year" data-edit-year>' +
-        '<button type="button" class="btn btn-sm btn-success btn-save-citation" data-index="' + i + '">Save citation</button>' +
-        '</div>' +
         '</div>' +
         '<div>' +
         '<button type="button" class="btn btn-sm btn-outline-secondary ml-1 btn-edit-keywords" data-index="' + i + '" title="Add or edit keywords so this paper appears when filtering">Edit keywords</button> ' +
-        '<button type="button" class="btn btn-sm btn-outline-secondary ml-1 btn-edit-citation" data-index="' + i + '" title="Add or edit authors/venue/year">Edit citation</button> ' +
         '<a href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary ml-2">Open</a> ' +
         '<button type="button" class="btn btn-sm btn-outline-danger ml-1 btn-remove-local" data-index="' + i + '">Remove</button>' +
         '</div>' +
@@ -191,46 +168,6 @@
         updateKeywordPills();
         applyFilter();
         editDiv.style.display = 'none';
-      });
-    });
-
-    list.querySelectorAll('.btn-edit-citation').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var row = btn.closest('.reading-paper-item');
-        var editDiv = row ? row.querySelector('.local-edit-citation') : null;
-        var inputAuthors = row ? row.querySelector('[data-edit-authors]') : null;
-        var inputVenue = row ? row.querySelector('[data-edit-venue]') : null;
-        var inputYear = row ? row.querySelector('[data-edit-year]') : null;
-        if (!editDiv || !inputAuthors || !inputVenue || !inputYear) return;
-        var papers = getLocalPapers();
-        var idx = parseInt(btn.getAttribute('data-index'), 10);
-        if (idx < 0 || idx >= papers.length) return;
-        inputAuthors.value = papers[idx].authors || '';
-        inputVenue.value = papers[idx].venue || '';
-        inputYear.value = papers[idx].year || '';
-        editDiv.style.display = 'block';
-        inputAuthors.focus();
-      });
-    });
-
-    list.querySelectorAll('.btn-save-citation').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var row = btn.closest('.reading-paper-item');
-        var editDiv = row ? row.querySelector('.local-edit-citation') : null;
-        var inputAuthors = row ? row.querySelector('[data-edit-authors]') : null;
-        var inputVenue = row ? row.querySelector('[data-edit-venue]') : null;
-        var inputYear = row ? row.querySelector('[data-edit-year]') : null;
-        if (!editDiv || !inputAuthors || !inputVenue || !inputYear) return;
-        var papers = getLocalPapers();
-        var idx = parseInt(btn.getAttribute('data-index'), 10);
-        if (idx < 0 || idx >= papers.length) return;
-        papers[idx].authors = (inputAuthors.value || '').trim();
-        papers[idx].venue = (inputVenue.value || '').trim();
-        papers[idx].year = (inputYear.value || '').trim();
-        setLocalPapers(papers);
-        renderLocalPapers();
-        updateKeywordPills();
-        applyFilter();
       });
     });
   }
@@ -587,9 +524,6 @@
         var kwStr = (document.getElementById('input-keywords').value || '').trim();
         var notes = (document.getElementById('input-notes').value || '').trim();
         var abstract = (document.getElementById('input-abstract') && document.getElementById('input-abstract').value) ? document.getElementById('input-abstract').value.trim() : '';
-        var authors = (document.getElementById('input-authors') && document.getElementById('input-authors').value) ? document.getElementById('input-authors').value.trim() : '';
-        var venue = (document.getElementById('input-venue') && document.getElementById('input-venue').value) ? document.getElementById('input-venue').value.trim() : '';
-        var year = (document.getElementById('input-year') && document.getElementById('input-year').value) ? document.getElementById('input-year').value.trim() : '';
         var keywords = kwStr ? kwStr.split(/[,，]/).map(function (k) { return k.trim(); }).filter(Boolean) : [];
 
         var papers = getLocalPapers();
@@ -599,10 +533,7 @@
           date: todayStr(),
           keywords: keywords,
           notes: notes,
-          abstract: abstract,
-          authors: authors,
-          venue: venue,
-          year: year
+          abstract: abstract
         });
         setLocalPapers(papers);
 
@@ -611,9 +542,6 @@
         document.getElementById('input-keywords').value = '';
         document.getElementById('input-notes').value = '';
         if (document.getElementById('input-abstract')) document.getElementById('input-abstract').value = '';
-        if (document.getElementById('input-authors')) document.getElementById('input-authors').value = '';
-        if (document.getElementById('input-venue')) document.getElementById('input-venue').value = '';
-        if (document.getElementById('input-year')) document.getElementById('input-year').value = '';
 
         renderLocalPapers();
         updateKeywordPills();
@@ -660,17 +588,7 @@
         var goodTitle = title && !isPdfFilename(title) && title !== '(No title)';
         var cur = byCanon[canon];
         if (!cur) {
-          byCanon[canon] = {
-            title: title || '(No title)',
-            url: canon,
-            date: p.date || '',
-            keywords: p.keywords || [],
-            notes: p.notes || '',
-            abstract: p.abstract || '',
-            authors: p.authors || '',
-            venue: p.venue || '',
-            year: p.year || ''
-          };
+          byCanon[canon] = { title: title || '(No title)', url: canon, date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '' };
           return;
         }
         var curGood = cur.title && !isPdfFilename(cur.title) && cur.title !== '(No title)';
@@ -679,18 +597,12 @@
           cur.keywords = p.keywords || [];
           cur.notes = p.notes || '';
           cur.abstract = p.abstract || cur.abstract;
-          cur.authors = p.authors || cur.authors;
-          cur.venue = p.venue || cur.venue;
-          cur.year = p.year || cur.year;
           cur.date = p.date || cur.date;
         } else if (goodTitle && curGood && title.length > (cur.title || '').length) {
           cur.title = title;
           cur.keywords = p.keywords || cur.keywords;
           cur.notes = p.notes || cur.notes;
           cur.abstract = p.abstract || cur.abstract;
-          cur.authors = p.authors || cur.authors;
-          cur.venue = p.venue || cur.venue;
-          cur.year = p.year || cur.year;
           cur.date = p.date || cur.date;
         }
       });
@@ -698,17 +610,7 @@
         var p = byCanon[k];
         if (isPdfFilename(p.title)) {
           var idMatch = p.url.match(/arxiv\.org\/abs\/(\d+\.\d+)/);
-          p = {
-            title: idMatch ? 'arXiv ' + idMatch[1] : p.title,
-            url: p.url,
-            date: p.date,
-            keywords: p.keywords,
-            notes: p.notes,
-            abstract: p.abstract || '',
-            authors: p.authors || '',
-            venue: p.venue || '',
-            year: p.year || ''
-          };
+          p = { title: idMatch ? 'arXiv ' + idMatch[1] : p.title, url: p.url, date: p.date, keywords: p.keywords, notes: p.notes, abstract: p.abstract || '' };
         }
         return p;
       });
@@ -725,9 +627,6 @@
         lines.push('    notes: "' + (p.notes || '').replace(/"/g, '\\"') + '"');
         var abs = (p.abstract || '').replace(/"/g, '\\"').replace(/\n/g, ' ');
         if (abs) lines.push('    abstract: "' + abs + '"');
-        if (p.authors) lines.push('    authors: "' + String(p.authors).replace(/"/g, '\\"') + '"');
-        if (p.venue) lines.push('    venue: "' + String(p.venue).replace(/"/g, '\\"') + '"');
-        if (p.year) lines.push('    year: "' + String(p.year).replace(/"/g, '\\"') + '"');
         return lines.join('\n');
       }).join('\n\n');
       var full = '# Paste under papers: in _data/reading_papers.yml\n\n' + yaml;
@@ -824,27 +723,13 @@
         var incomingTitle = (p.title || '').trim() || '(No title)';
         var existing = byUrl[n];
         if (!existing) {
-          byUrl[n] = {
-            title: incomingTitle,
-            url: p.url.replace(/#.*$/, '').replace(/\/+$/, ''),
-            date: p.date || '',
-            keywords: p.keywords || [],
-            notes: p.notes || '',
-            abstract: p.abstract || '',
-            authors: p.authors || '',
-            venue: p.venue || '',
-            year: p.year || ''
-          };
+          byUrl[n] = { title: incomingTitle, url: p.url.replace(/#.*$/, '').replace(/\/+$/, ''), date: p.date || '', keywords: p.keywords || [], notes: p.notes || '', abstract: p.abstract || '' };
           local.unshift(byUrl[n]);
           mergedCount++;
         } else if (isWeakTitle(existing.title) && !isWeakTitle(incomingTitle)) {
           existing.title = incomingTitle;
           updatedCount++;
         }
-        if (!existing) return;
-        if (!existing.authors && p.authors) existing.authors = p.authors;
-        if (!existing.venue && p.venue) existing.venue = p.venue;
-        if (!existing.year && p.year) existing.year = p.year;
       });
       if (mergedCount > 0 || updatedCount > 0) {
         setLocalPapers(local);

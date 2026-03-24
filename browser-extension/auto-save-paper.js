@@ -124,55 +124,6 @@
     return '';
   }
 
-  function getMeta(name) {
-    var el = document.querySelector('meta[name="' + name + '"]');
-    if (!el) return '';
-    return (el.getAttribute('content') || '').trim();
-  }
-
-  function getMetaProp(prop) {
-    var el = document.querySelector('meta[property="' + prop + '"]');
-    if (!el) return '';
-    return (el.getAttribute('content') || '').trim();
-  }
-
-  function getCitationMeta() {
-    var authors = [];
-    document.querySelectorAll('meta[name="citation_author"]').forEach(function (el) {
-      var v = (el.getAttribute('content') || '').trim();
-      if (v) authors.push(v);
-    });
-    var venue = getMeta('citation_journal_title') ||
-      getMeta('citation_conference_title') ||
-      getMeta('citation_book_title') ||
-      getMeta('prism.publicationName') ||
-      getMeta('dc.Source') ||
-      getMetaProp('og:site_name');
-    if (!venue) {
-      var host = location.hostname || '';
-      if (/ieeexplore\.ieee\.org/i.test(host)) venue = 'IEEE Xplore';
-      else if (/dl\.acm\.org/i.test(host)) venue = 'ACM Digital Library';
-      else if (/link\.springer\.com/i.test(host)) venue = 'Springer';
-      else if (/sciencedirect\.com/i.test(host)) venue = 'ScienceDirect';
-      else if (/arxiv\.org/i.test(host)) venue = 'arXiv';
-    }
-    var year = '';
-    var d = getMeta('citation_publication_date') || getMeta('citation_date') || getMeta('dc.Date');
-    if (d) {
-      var m = d.match(/\b(19|20)\d{2}\b/);
-      if (m) year = m[0];
-    }
-    if (!year) {
-      var y = getMeta('citation_year');
-      if (y && /\b(19|20)\d{2}\b/.test(y)) year = y.match(/\b(19|20)\d{2}\b/)[0];
-    }
-    return {
-      authors: authors.join('; '),
-      venue: venue || '',
-      year: year || ''
-    };
-  }
-
   function trySave() {
     var url = location.href;
     if (!url || url.length < 10) return;
@@ -187,7 +138,6 @@
     if (isJunkTitle(titleFromPage)) titleFromPage = '';
     var title = (titleFromPage && titleFromPage.length >= 2) ? titleFromPage : titleFromUrl(cleanUrl);
 
-    var citation = getCitationMeta();
     chrome.storage.local.get(STORAGE_KEY, function (data) {
       var list = data[STORAGE_KEY] || [];
       var existing = null;
@@ -199,27 +149,15 @@
         if (titleFromPage && titleFromPage.length >= 2 && (existing.title === '(No title)' || existing.title.indexOf('arXiv ') === 0 || existing.title.indexOf('IEEE ') === 0 || existing.title.indexOf('ACM ') === 0)) {
           existing.title = titleFromPage;
           existing.url = canon;
+          chrome.storage.local.set({ reading_papers_auto: list });
         }
-        if (!existing.authors && citation.authors) existing.authors = citation.authors;
-        if (!existing.venue && citation.venue) existing.venue = citation.venue;
-        if (!existing.year && citation.year) existing.year = citation.year;
-        chrome.storage.local.set({ reading_papers_auto: list });
         return;
       }
 
       if (!titleFromPage || titleFromPage.length < 2) return;
 
       var today = new Date().toISOString().slice(0, 10);
-      list.unshift({
-        title: title,
-        url: canon,
-        date: today,
-        keywords: [],
-        notes: '',
-        authors: citation.authors || '',
-        venue: citation.venue || '',
-        year: citation.year || ''
-      });
+      list.unshift({ title: title, url: canon, date: today, keywords: [], notes: '' });
       chrome.storage.local.set({ reading_papers_auto: list });
     });
   }
