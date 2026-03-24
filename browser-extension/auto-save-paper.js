@@ -176,8 +176,27 @@
     var venue = getMeta('citation_journal_title') || getMeta('citation_conference_title') || getMeta('citation_inbook_title') || getMeta('og:site_name');
     var doi = getMeta('citation_doi');
     if (!doi) {
+      var dcId = getMeta('dc.identifier') || getMeta('DC.Identifier') || '';
+      if (dcId) {
+        var dct = dcId.trim();
+        if (/^10\.\d/i.test(dct)) doi = dct.split(/[;\s]+/)[0].trim();
+        else {
+          var dm = dcId.match(/(10\.\d{4,9}\/[^\s;'"<>]+)/i);
+          if (dm) doi = dm[1];
+        }
+      }
+    }
+    if (!doi) {
       var doiM = (canonUrl || '').match(/dl\.acm\.org\/doi\/(10\.[^/?#]+)/i);
       if (doiM) doi = doiM[1];
+    }
+    if (!doi && /ieeexplore\.ieee\.org/i.test(location.hostname || '')) {
+      var CR0 = typeof ReadingListCrossref !== 'undefined' ? ReadingListCrossref : null;
+      if (CR0 && CR0.extractDoiFromHtml && document.documentElement) {
+        try {
+          doi = CR0.extractDoiFromHtml(document.documentElement.outerHTML || '') || '';
+        } catch (e) {}
+      }
     }
     var citation = {
       title: finalTitle || '',
@@ -222,6 +241,19 @@
       var year = parseYear(qMeta('citation_publication_date') || qMeta('citation_date') || qMeta('dc.date') || '');
       var venue = qMeta('citation_journal_title') || qMeta('citation_conference_title') || qMeta('og:site_name') || '';
       var doi = qMeta('citation_doi') || '';
+      if (!doi) {
+        var dcIdH = qMeta('dc.identifier') || qMeta('DC.Identifier') || '';
+        if (dcIdH) {
+          if (/^10\.\d/i.test(dcIdH.trim())) doi = dcIdH.trim().split(/[;\s]+/)[0].trim();
+          else {
+            var dmh = dcIdH.match(/(10\.\d{4,9}\/[^\s;'"<>]+)/i);
+            if (dmh) doi = dmh[1];
+          }
+        }
+      }
+      if (!doi && typeof ReadingListCrossref !== 'undefined' && ReadingListCrossref.extractDoiFromHtml) {
+        doi = ReadingListCrossref.extractDoiFromHtml(html) || '';
+      }
       return mergeCitation({
         title: title,
         authors: authors,
@@ -237,7 +269,15 @@
 
   function fetchCitationFromCanonical(canonUrl, done) {
     if (!canonUrl || typeof fetch !== 'function') { done(null); return; }
-    fetch(canonUrl, { method: 'GET', credentials: 'omit' })
+    var fetchOpts = { method: 'GET', credentials: 'omit' };
+    try {
+      if (typeof window !== 'undefined' && window.location && window.location.href) {
+        var targetHost = new URL(canonUrl).hostname;
+        var hereHost = new URL(window.location.href).hostname;
+        if (targetHost === hereHost) fetchOpts.credentials = 'include';
+      }
+    } catch (e) {}
+    fetch(canonUrl, fetchOpts)
       .then(function (res) { return res.ok ? res.text() : ''; })
       .then(function (html) {
         if (!html) { done(null); return; }
@@ -405,12 +445,7 @@
         proceedWithCitation(merged);
         return;
       }
-      var doi = CR.deriveDoiFromPaper(merged, canon);
-      if (!doi) {
-        proceedWithCitation(merged);
-        return;
-      }
-      CR.fetchCrossrefWork(doi).then(function (msg) {
+      CR.fetchCrossrefMessageForCanon(merged, canon).then(function (msg) {
         if (!msg) {
           proceedWithCitation(merged);
           return;

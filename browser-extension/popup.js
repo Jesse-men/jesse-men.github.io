@@ -101,6 +101,19 @@ function parseCitationFromHtml(html, fallbackTitle, fallbackUrl) {
     var year = parseYear(qMeta('citation_publication_date') || qMeta('citation_date') || qMeta('dc.date') || '');
     var venue = qMeta('citation_journal_title') || qMeta('citation_conference_title') || qMeta('og:site_name') || '';
     var doi = qMeta('citation_doi') || '';
+    if (!doi) {
+      var dcIdH = qMeta('dc.identifier') || qMeta('DC.Identifier') || '';
+      if (dcIdH) {
+        if (/^10\.\d/i.test(dcIdH.trim())) doi = dcIdH.trim().split(/[;\s]+/)[0].trim();
+        else {
+          var dmh = dcIdH.match(/(10\.\d{4,9}\/[^\s;'"<>]+)/i);
+          if (dmh) doi = dmh[1];
+        }
+      }
+    }
+    if (!doi && typeof ReadingListCrossref !== 'undefined' && ReadingListCrossref.extractDoiFromHtml) {
+      doi = ReadingListCrossref.extractDoiFromHtml(html) || '';
+    }
     return {
       title: title,
       authors: authors,
@@ -327,9 +340,20 @@ document.getElementById('refetch-authors').addEventListener('click', function ()
         .then(function (c) {
           var CR = typeof ReadingListCrossref !== 'undefined' ? ReadingListCrossref : null;
           if (!CR) return c;
-          var doi = CR.deriveDoiFromPaper(c, canon);
-          if (!doi) return c;
-          return CR.fetchCrossrefWork(doi).then(function (msg) {
+          var base = c;
+          if (!base) {
+            base = { title: p.title || '', authors: [], year: '', venue: '', doi: '', url: canon };
+          } else if (!base.title && p.title) {
+            base = {
+              title: p.title,
+              authors: base.authors || [],
+              year: base.year || '',
+              venue: base.venue || '',
+              doi: base.doi || '',
+              url: base.url || canon
+            };
+          }
+          return CR.fetchCrossrefMessageForCanon(base, canon).then(function (msg) {
             if (!msg) return c;
             return CR.mergeHtmlCitationWithCrossref(c, msg, canon);
           });
