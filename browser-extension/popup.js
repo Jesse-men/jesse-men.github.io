@@ -114,6 +114,41 @@ function parseCitationFromHtml(html, fallbackTitle, fallbackUrl) {
   }
 }
 
+function extractArxivId(url) {
+  var m = (url || '').match(/arxiv\.org\/abs\/(\d{4}\.\d{4,5})(?:v\d+)?/i);
+  return m ? m[1] : '';
+}
+
+function fetchArxivCitationById(arxivId, fallbackTitle, fallbackUrl) {
+  if (!arxivId) return Promise.resolve(null);
+  var apiUrl = 'https://export.arxiv.org/api/query?id_list=' + encodeURIComponent(arxivId);
+  return fetch(apiUrl, { method: 'GET', credentials: 'omit' })
+    .then(function (res) { return res.ok ? res.text() : ''; })
+    .then(function (xml) {
+      if (!xml) return null;
+      var doc = new DOMParser().parseFromString(xml, 'application/xml');
+      var entry = doc.querySelector('entry');
+      if (!entry) return null;
+      var titleEl = entry.querySelector('title');
+      var pubEl = entry.querySelector('published');
+      var authors = [];
+      entry.querySelectorAll('author > name').forEach(function (n) {
+        var t = (n.textContent || '').trim();
+        if (t) authors.push(t);
+      });
+      var year = parseYear(pubEl ? pubEl.textContent : '');
+      return {
+        title: titleEl ? (titleEl.textContent || '').replace(/\s+/g, ' ').trim() : (fallbackTitle || ''),
+        authors: authors,
+        year: year || '',
+        venue: 'arXiv',
+        doi: '',
+        url: fallbackUrl || ('https://arxiv.org/abs/' + arxivId)
+      };
+    })
+    .catch(function () { return null; });
+}
+
 function shouldReplaceCitation(oldItem, newCitation) {
   var oldAuthors = oldItem && oldItem.citation && Array.isArray(oldItem.citation.authors) ? oldItem.citation.authors.length : 0;
   var newAuthors = newCitation && Array.isArray(newCitation.authors) ? newCitation.authors.length : 0;
@@ -231,13 +266,20 @@ document.getElementById('refetch-authors').addEventListener('click', function ()
       fetch(canon, { method: 'GET', credentials: 'omit' })
         .then(function (res) { return res.ok ? res.text() : ''; })
         .then(function (html) {
-          if (html) {
-            var c = parseCitationFromHtml(html, p.title || '', canon);
-            if (c && shouldReplaceCitation(p, c)) {
-              p.citation = c;
-              p.citationText = citationFromPaper({ title: p.title || c.title, url: canon, citation: c });
-              updated++;
-            }
+          var c = html ? parseCitationFromHtml(html, p.title || '', canon) : null;
+          var aid = extractArxivId(canon);
+          if (aid && (!c || !c.authors || c.authors.length === 0)) {
+            return fetchArxivCitationById(aid, p.title || '', canon).then(function (ac) {
+              return ac || c;
+            });
+          }
+          return c;
+        })
+        .then(function (c) {
+          if (c && shouldReplaceCitation(p, c)) {
+            p.citation = c;
+            p.citationText = citationFromPaper({ title: p.title || c.title, url: canon, citation: c });
+            updated++;
           }
         })
         .catch(function () {})
