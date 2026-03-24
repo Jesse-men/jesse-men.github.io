@@ -13,6 +13,8 @@ function canonicalPaperUrl(url) {
   var u = (url || '').replace(/#.*$/, '').replace(/\/+$/, '');
   var m = u.match(/ieeexplore\.ieee\.org\/document\/(\d+)/i);
   if (m) return 'https://ieeexplore.ieee.org/document/' + m[1];
+  m = u.match(/ieeexplore\.ieee\.org\/abstract\/document\/(\d+)/i);
+  if (m) return 'https://ieeexplore.ieee.org/document/' + m[1];
   m = u.match(/ieeexplore\.ieee\.org\/stamp\/stamp\.jsp\?.*arnumber=(\d+)/i);
   if (m) return 'https://ieeexplore.ieee.org/document/' + m[1];
   m = u.match(/arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5})(?:v\d+)?/i);
@@ -201,6 +203,10 @@ function shouldReplaceCitation(oldItem, newCitation) {
   return false;
 }
 
+function isArxivUrl(url) {
+  return /arxiv\.org\/abs\/\d{4}\.\d{4,5}/i.test(url || '');
+}
+
 function buildUrlWithPayload(list) {
   if (!list || list.length === 0) return { url: READING_LIST_BASE };
   var payload = btoa(unescape(encodeURIComponent(JSON.stringify(list))));
@@ -291,6 +297,7 @@ document.getElementById('refetch-authors').addEventListener('click', function ()
     var idx = 0;
     var updated = 0;
     var scanned = 0;
+    var withAuthors = 0;
 
     function step() {
       if (idx >= list.length) {
@@ -320,15 +327,20 @@ document.getElementById('refetch-authors').addEventListener('click', function ()
           return c;
         })
         .then(function (c) {
-          if (c && shouldReplaceCitation(p, c)) {
+          var newAuthors = c && c.authors && c.authors.length ? c.authors.length : 0;
+          if (newAuthors > 0) withAuthors++;
+          // For arXiv entries, if we have authors, force overwrite old weak citation.
+          var forceArxivOverwrite = isArxivUrl(canon) && newAuthors > 0;
+          if (c && (forceArxivOverwrite || shouldReplaceCitation(p, c))) {
             p.citation = c;
             p.citationText = citationFromPaper({ title: p.title || c.title, url: canon, citation: c });
+            if (c.title && c.title.length > 2) p.title = c.title;
             updated++;
           }
         })
         .catch(function () {})
         .finally(function () {
-          setStatus('Re-fetching authors: ' + scanned + '/' + list.length + ' ...');
+          setStatus('Re-fetching authors: ' + scanned + '/' + list.length + ' ... (authors found: ' + withAuthors + ')');
           // Small delay avoids hammering providers and improves stability.
           setTimeout(step, 120);
         });

@@ -22,6 +22,8 @@
     var x = u.replace(/#.*$/, '').replace(/\/+$/, '');
     var m = x.match(/ieeexplore\.ieee\.org\/document\/(\d+)/i);
     if (m) return 'https://ieeexplore.ieee.org/document/' + m[1];
+    m = x.match(/ieeexplore\.ieee\.org\/abstract\/document\/(\d+)/i);
+    if (m) return 'https://ieeexplore.ieee.org/document/' + m[1];
     m = x.match(/arxiv\.org\/(?:pdf|abs)\/(\d+\.\d+)(?:v\d+)?/i);
     if (m) return 'https://arxiv.org/abs/' + m[1];
     m = x.match(/dl\.acm\.org\/doi\/([^/?]+)/i);
