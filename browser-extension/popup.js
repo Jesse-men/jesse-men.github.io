@@ -121,7 +121,8 @@ function extractArxivId(url) {
 
 function fetchArxivCitationById(arxivId, fallbackTitle, fallbackUrl) {
   if (!arxivId) return Promise.resolve(null);
-  var apiUrl = 'https://export.arxiv.org/api/query?id_list=' + encodeURIComponent(arxivId);
+  // Use arxiv.org domain (already in host_permissions) to avoid cross-domain permission issues.
+  var apiUrl = 'https://arxiv.org/api/query?id_list=' + encodeURIComponent(arxivId);
   return fetch(apiUrl, { method: 'GET', credentials: 'omit' })
     .then(function (res) { return res.ok ? res.text() : ''; })
     .then(function (xml) {
@@ -169,6 +170,17 @@ function fetchArxivCitationById(arxivId, fallbackTitle, fallbackUrl) {
         if (t) authors.push(t);
       }
       var year = parseYear(pubEl ? pubEl.textContent : '');
+      if (!authors.length) {
+        // Fallback for namespace/parser quirks: parse XML text directly.
+        var blockMatch = xml.match(/<entry[\s\S]*?<\/entry>/i);
+        var block = blockMatch ? blockMatch[0] : xml;
+        var authorMatches = block.match(/<name>\s*([^<]+?)\s*<\/name>/gi) || [];
+        for (var k = 0; k < authorMatches.length; k++) {
+          var am = authorMatches[k].match(/<name>\s*([^<]+?)\s*<\/name>/i);
+          var an = am && am[1] ? am[1].trim() : '';
+          if (an) authors.push(an);
+        }
+      }
       return {
         title: titleEl ? (titleEl.textContent || '').replace(/\s+/g, ' ').trim() : (fallbackTitle || ''),
         authors: authors,
