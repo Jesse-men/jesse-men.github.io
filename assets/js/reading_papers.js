@@ -130,9 +130,16 @@
         '<input type="text" class="form-control form-control-sm d-inline-block mr-1" style="width:220px;" placeholder="Keywords, comma-separated" data-edit-keywords>' +
         '<button type="button" class="btn btn-sm btn-success btn-save-keywords" data-index="' + i + '">Save</button>' +
         '</div>' +
+        '<div class="mt-2 local-edit-citation" style="display:none;">' +
+        '<input type="text" class="form-control form-control-sm mb-1" placeholder="Authors (e.g. A; B)" data-edit-authors>' +
+        '<input type="text" class="form-control form-control-sm mb-1" placeholder="Venue (journal/conference)" data-edit-venue>' +
+        '<input type="number" class="form-control form-control-sm mb-1" min="1900" max="2100" placeholder="Year" data-edit-year>' +
+        '<button type="button" class="btn btn-sm btn-success btn-save-citation" data-index="' + i + '">Save citation</button>' +
+        '</div>' +
         '</div>' +
         '<div>' +
         '<button type="button" class="btn btn-sm btn-outline-secondary ml-1 btn-edit-keywords" data-index="' + i + '" title="Add or edit keywords so this paper appears when filtering">Edit keywords</button> ' +
+        '<button type="button" class="btn btn-sm btn-outline-secondary ml-1 btn-edit-citation" data-index="' + i + '" title="Add or edit authors/venue/year">Edit citation</button> ' +
         '<a href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary ml-2">Open</a> ' +
         '<button type="button" class="btn btn-sm btn-outline-danger ml-1 btn-remove-local" data-index="' + i + '">Remove</button>' +
         '</div>' +
@@ -184,6 +191,46 @@
         updateKeywordPills();
         applyFilter();
         editDiv.style.display = 'none';
+      });
+    });
+
+    list.querySelectorAll('.btn-edit-citation').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var row = btn.closest('.reading-paper-item');
+        var editDiv = row ? row.querySelector('.local-edit-citation') : null;
+        var inputAuthors = row ? row.querySelector('[data-edit-authors]') : null;
+        var inputVenue = row ? row.querySelector('[data-edit-venue]') : null;
+        var inputYear = row ? row.querySelector('[data-edit-year]') : null;
+        if (!editDiv || !inputAuthors || !inputVenue || !inputYear) return;
+        var papers = getLocalPapers();
+        var idx = parseInt(btn.getAttribute('data-index'), 10);
+        if (idx < 0 || idx >= papers.length) return;
+        inputAuthors.value = papers[idx].authors || '';
+        inputVenue.value = papers[idx].venue || '';
+        inputYear.value = papers[idx].year || '';
+        editDiv.style.display = 'block';
+        inputAuthors.focus();
+      });
+    });
+
+    list.querySelectorAll('.btn-save-citation').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var row = btn.closest('.reading-paper-item');
+        var editDiv = row ? row.querySelector('.local-edit-citation') : null;
+        var inputAuthors = row ? row.querySelector('[data-edit-authors]') : null;
+        var inputVenue = row ? row.querySelector('[data-edit-venue]') : null;
+        var inputYear = row ? row.querySelector('[data-edit-year]') : null;
+        if (!editDiv || !inputAuthors || !inputVenue || !inputYear) return;
+        var papers = getLocalPapers();
+        var idx = parseInt(btn.getAttribute('data-index'), 10);
+        if (idx < 0 || idx >= papers.length) return;
+        papers[idx].authors = (inputAuthors.value || '').trim();
+        papers[idx].venue = (inputVenue.value || '').trim();
+        papers[idx].year = (inputYear.value || '').trim();
+        setLocalPapers(papers);
+        renderLocalPapers();
+        updateKeywordPills();
+        applyFilter();
       });
     });
   }
