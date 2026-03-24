@@ -185,7 +185,11 @@
         return;
       }
 
-      if (!titleFromPage || titleFromPage.length < 2) return;
+      // If full page title is not available yet, still save with a safe URL-derived fallback
+      // (e.g. arXiv/IEEE/ACM identifier) to avoid missing newly visited papers.
+      if (!titleFromPage || titleFromPage.length < 2) {
+        if (!title || title === '(No title)' || isJunkTitle(title)) return;
+      }
 
       var today = new Date().toISOString().slice(0, 10);
       list.unshift({ title: title, url: canon, date: today, keywords: [], notes: '' });
