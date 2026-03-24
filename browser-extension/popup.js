@@ -46,6 +46,82 @@ function setStatus(text) {
   if (el) el.textContent = text;
 }
 
+function parseYear(s) {
+  var m = (s || '').match(/\b(19|20)\d{2}\b/);
+  return m ? m[0] : '';
+}
+
+function citationFromPaper(item) {
+  var c = item && item.citation ? item.citation : null;
+  if (!c) return '';
+  var authors = c.authors || [];
+  var authorText = authors.length ? (authors.length <= 3 ? authors.join(', ') : (authors[0] + ' et al.')) : '';
+  var parts = [];
+  if (authorText) parts.push(authorText);
+  if (c.year) parts.push('(' + c.year + ')');
+  if (c.title || item.title) parts.push((c.title || item.title) + '.');
+  if (c.venue) parts.push(c.venue + '.');
+  if (c.doi) parts.push('doi:' + c.doi + '.');
+  if (c.url || item.url) parts.push(c.url || item.url);
+  return parts.join(' ');
+}
+
+function parseCitationFromHtml(html, fallbackTitle, fallbackUrl) {
+  try {
+    var doc = new DOMParser().parseFromString(html, 'text/html');
+    function qMeta(name) {
+      var el = doc.querySelector('meta[name="' + name + '"], meta[property="' + name + '"]');
+      return el ? (el.getAttribute('content') || '').trim() : '';
+    }
+    function qMetaAll(name) {
+      var out = [];
+      var els = doc.querySelectorAll('meta[name="' + name + '"]');
+      for (var i = 0; i < els.length; i++) {
+        var v = (els[i].getAttribute('content') || '').trim();
+        if (v) out.push(v);
+      }
+      return out;
+    }
+    var title = qMeta('citation_title') || qMeta('dc.Title') || qMeta('dc.title') || qMeta('og:title') || fallbackTitle || '';
+    var authors = qMetaAll('citation_author');
+    if (!authors.length) {
+      var links = doc.querySelectorAll('.authors a, div.authors a');
+      for (var j = 0; j < links.length; j++) {
+        var t = (links[j].textContent || '').trim();
+        if (t) authors.push(t);
+      }
+    }
+    if (!authors.length) {
+      var txt = (doc.body && doc.body.textContent) ? doc.body.textContent.replace(/\u00A0/g, ' ') : '';
+      var m = txt.match(/Authors?\s*:\s*([^\n]+)/i);
+      if (m && m[1]) {
+        authors = m[1].split(/,| and /i).map(function (x) { return x.trim(); }).filter(Boolean);
+      }
+    }
+    var year = parseYear(qMeta('citation_publication_date') || qMeta('citation_date') || qMeta('dc.date') || '');
+    var venue = qMeta('citation_journal_title') || qMeta('citation_conference_title') || qMeta('og:site_name') || '';
+    var doi = qMeta('citation_doi') || '';
+    return {
+      title: title,
+      authors: authors,
+      year: year,
+      venue: venue,
+      doi: doi,
+      url: fallbackUrl || ''
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+function shouldReplaceCitation(oldItem, newCitation) {
+  var oldAuthors = oldItem && oldItem.citation && Array.isArray(oldItem.citation.authors) ? oldItem.citation.authors.length : 0;
+  var newAuthors = newCitation && Array.isArray(newCitation.authors) ? newCitation.authors.length : 0;
+  if (newAuthors > oldAuthors) return true;
+  if (!oldItem.citationText && newAuthors > 0) return true;
+  return false;
+}
+
 function buildUrlWithPayload(list) {
   if (!list || list.length === 0) return { url: READING_LIST_BASE };
   var payload = btoa(unescape(encodeURIComponent(JSON.stringify(list))));
@@ -121,5 +197,56 @@ document.getElementById('import-from-history').addEventListener('click', functio
       });
       checkDone();
     });
+  });
+});
+
+document.getElementById('refetch-authors').addEventListener('click', function () {
+  chrome.storage.local.get(STORAGE_KEY, function (data) {
+    var list = data[STORAGE_KEY] || [];
+    if (!list.length) {
+      setStatus('No saved papers.');
+      return;
+    }
+    setStatus('Re-fetching authors: 0/' + list.length + ' ...');
+
+    var idx = 0;
+    var updated = 0;
+    var scanned = 0;
+
+    function step() {
+      if (idx >= list.length) {
+        chrome.storage.local.set({ reading_papers_auto: list }, function () {
+          setStatus('Done. Updated ' + updated + ' / ' + scanned + ' papers.');
+        });
+        return;
+      }
+      var p = list[idx++];
+      scanned++;
+      var canon = canonicalPaperUrl(p.url || '') || normalizeUrl(p.url || '');
+      if (!canon || !/^https?:\/\//i.test(canon)) {
+        setStatus('Re-fetching authors: ' + scanned + '/' + list.length + ' ...');
+        step();
+        return;
+      }
+      fetch(canon, { method: 'GET', credentials: 'omit' })
+        .then(function (res) { return res.ok ? res.text() : ''; })
+        .then(function (html) {
+          if (html) {
+            var c = parseCitationFromHtml(html, p.title || '', canon);
+            if (c && shouldReplaceCitation(p, c)) {
+              p.citation = c;
+              p.citationText = citationFromPaper({ title: p.title || c.title, url: canon, citation: c });
+              updated++;
+            }
+          }
+        })
+        .catch(function () {})
+        .finally(function () {
+          setStatus('Re-fetching authors: ' + scanned + '/' + list.length + ' ...');
+          // Small delay avoids hammering providers and improves stability.
+          setTimeout(step, 120);
+        });
+    }
+    step();
   });
 });
