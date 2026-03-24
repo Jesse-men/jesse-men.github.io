@@ -127,15 +127,47 @@ function fetchArxivCitationById(arxivId, fallbackTitle, fallbackUrl) {
     .then(function (xml) {
       if (!xml) return null;
       var doc = new DOMParser().parseFromString(xml, 'application/xml');
-      var entry = doc.querySelector('entry');
+      var parseErr = doc.getElementsByTagName('parsererror');
+      if (parseErr && parseErr.length) return null;
+      var entry = null;
+      var entries = doc.getElementsByTagName('entry');
+      if (entries && entries.length) entry = entries[0];
+      if (!entry) {
+        var entriesNs = doc.getElementsByTagNameNS('*', 'entry');
+        if (entriesNs && entriesNs.length) entry = entriesNs[0];
+      }
       if (!entry) return null;
-      var titleEl = entry.querySelector('title');
-      var pubEl = entry.querySelector('published');
+      var titleEl = null;
+      var pubEl = null;
+      var tEls = entry.getElementsByTagName('title');
+      if (tEls && tEls.length) titleEl = tEls[0];
+      if (!titleEl) {
+        var tElsNs = entry.getElementsByTagNameNS('*', 'title');
+        if (tElsNs && tElsNs.length) titleEl = tElsNs[0];
+      }
+      var pEls = entry.getElementsByTagName('published');
+      if (pEls && pEls.length) pubEl = pEls[0];
+      if (!pubEl) {
+        var pElsNs = entry.getElementsByTagNameNS('*', 'published');
+        if (pElsNs && pElsNs.length) pubEl = pElsNs[0];
+      }
       var authors = [];
-      entry.querySelectorAll('author > name').forEach(function (n) {
-        var t = (n.textContent || '').trim();
+      var authorNodes = entry.getElementsByTagName('author');
+      if ((!authorNodes || !authorNodes.length) && entry.getElementsByTagNameNS) {
+        authorNodes = entry.getElementsByTagNameNS('*', 'author');
+      }
+      for (var i = 0; authorNodes && i < authorNodes.length; i++) {
+        var node = authorNodes[i];
+        var nameNode = null;
+        var nameNodes = node.getElementsByTagName('name');
+        if (nameNodes && nameNodes.length) nameNode = nameNodes[0];
+        if (!nameNode && node.getElementsByTagNameNS) {
+          var nameNodesNs = node.getElementsByTagNameNS('*', 'name');
+          if (nameNodesNs && nameNodesNs.length) nameNode = nameNodesNs[0];
+        }
+        var t = nameNode ? (nameNode.textContent || '').trim() : '';
         if (t) authors.push(t);
-      });
+      }
       var year = parseYear(pubEl ? pubEl.textContent : '');
       return {
         title: titleEl ? (titleEl.textContent || '').replace(/\s+/g, ' ').trim() : (fallbackTitle || ''),
