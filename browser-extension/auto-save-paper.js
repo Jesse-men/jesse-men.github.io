@@ -130,13 +130,32 @@
     return (el.getAttribute('content') || '').trim();
   }
 
+  function getMetaProp(prop) {
+    var el = document.querySelector('meta[property="' + prop + '"]');
+    if (!el) return '';
+    return (el.getAttribute('content') || '').trim();
+  }
+
   function getCitationMeta() {
     var authors = [];
     document.querySelectorAll('meta[name="citation_author"]').forEach(function (el) {
       var v = (el.getAttribute('content') || '').trim();
       if (v) authors.push(v);
     });
-    var venue = getMeta('citation_journal_title') || getMeta('citation_conference_title') || getMeta('citation_book_title');
+    var venue = getMeta('citation_journal_title') ||
+      getMeta('citation_conference_title') ||
+      getMeta('citation_book_title') ||
+      getMeta('prism.publicationName') ||
+      getMeta('dc.Source') ||
+      getMetaProp('og:site_name');
+    if (!venue) {
+      var host = location.hostname || '';
+      if (/ieeexplore\.ieee\.org/i.test(host)) venue = 'IEEE Xplore';
+      else if (/dl\.acm\.org/i.test(host)) venue = 'ACM Digital Library';
+      else if (/link\.springer\.com/i.test(host)) venue = 'Springer';
+      else if (/sciencedirect\.com/i.test(host)) venue = 'ScienceDirect';
+      else if (/arxiv\.org/i.test(host)) venue = 'arXiv';
+    }
     var year = '';
     var d = getMeta('citation_publication_date') || getMeta('citation_date') || getMeta('dc.Date');
     if (d) {
